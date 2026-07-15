@@ -1,8 +1,8 @@
 """Exceptions raised by odcs2lhp.
 
-A single lightweight exception type keeps the package dependency-free (no ``lhp``
-import). Each error carries a short ``code`` mirroring the LHP error it maps to,
-plus a human-readable message and optional remediation suggestions.
+A single lightweight exception type keeps the package dependency-free.
+Each error carries a short ``code``, plus a human-readable message and
+optional remediation suggestions.
 """
 
 from __future__ import annotations

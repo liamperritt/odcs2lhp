@@ -1,8 +1,8 @@
 """Parse and validate ODCS data-contract YAML files.
 
-Vendored from ``lhp.parsers.odcs_parser`` but self-contained: loads YAML with
-PyYAML and validates against the ODCS JSON Schema shipped inside this package
-(``odcs2lhp.schemas.odcs.schema.json``, sourced verbatim from bitol-io).
+Loads YAML with PyYAML and validates against the ODCS JSON Schema shipped
+inside this package (``odcs2lhp.schemas.odcs.schema.json``,
+sourced verbatim from bitol-io).
 """
 
 from __future__ import annotations

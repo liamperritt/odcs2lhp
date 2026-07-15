@@ -1,18 +1,12 @@
-"""Pure ODCS-property mappers (vendored from Lakehouse Plumber).
+"""Pure ODCS-property mappers.
 
-These functions operate on plain ODCS dicts and return strings / dicts / tuples
-with no dependency on ``lhp``:
+These functions operate on plain ODCS dicts and return strings / dicts / tuples:
 
 - :func:`odcs_type_to_spark` -> a Spark/Databricks DDL type string.
 - :func:`odcs_tags_to_uc` -> a Unity Catalog tag mapping from an ODCS ``tags``
   array (present on both schema objects and properties).
 - :func:`odcs_property_to_constraints` -> row-level ``(predicate, name)`` pairs
   derived from a property's ``logicalTypeOptions``.
-- :func:`slug` / :func:`ddl_identifier` -> filesystem- and DDL-safe name helpers.
-
-Kept behaviour-identical to the LHP originals (``lhp.utils.odcs_mapper``,
-``lhp.core.processing.odcs_translator._slug``,
-``lhp.parsers.schema_parser._ddl_identifier``) so translated output matches.
 """
 
 from __future__ import annotations
@@ -26,24 +20,10 @@ from .errors import Odcs2LhpError
 # Name helpers
 # ---------------------------------------------------------------------------
 
-_PLAIN_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-
 
 def slug(name: str) -> str:
     """Replace filesystem-unsafe characters in an object name."""
     return re.sub(r"[^A-Za-z0-9_.-]", "_", name)
-
-
-def ddl_identifier(name: str) -> str:
-    """Return a column name safe for a Spark DDL string.
-
-    Plain identifiers (letters/digits/underscore, not starting with a digit) are
-    returned as-is; anything else is backtick-quoted (a literal backtick is
-    escaped by doubling).
-    """
-    if _PLAIN_IDENTIFIER.fullmatch(name):
-        return name
-    return "`" + name.replace("`", "``") + "`"
 
 
 # ---------------------------------------------------------------------------

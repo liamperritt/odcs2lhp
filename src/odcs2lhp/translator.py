@@ -11,8 +11,8 @@ Each schema object in a contract produces five :class:`Artifact` sidecars:
   check per ``required`` property).
 
 Load and transform schemas exclude the operational-metadata and SCD2 columns
-(``exclude``): those are LHP-injected, not sourced from the input data. The write
-schema keeps every column (they are part of the written table).
+(``exclude``): those are not sourced from the input data. The write schema
+keeps every column (they are part of the written table).
 """
 
 from __future__ import annotations
