@@ -1,0 +1,7 @@
+name: test_project
+version: "1.0"
+operational_metadata:
+  columns:
+    _processing_timestamp:
+      expression: "F.current_timestamp()"
+      applies_to: ["view"]

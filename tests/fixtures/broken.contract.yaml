@@ -1,0 +1,8 @@
+# Missing required ODCS top-level fields (kind, apiVersion, id, status).
+version: "1.0.0"
+name: broken-contract
+schema:
+  - name: thing
+    properties:
+      - name: id
+        physicalType: BIGINT
