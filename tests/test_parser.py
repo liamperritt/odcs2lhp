@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from odcs2lhp.errors import Odcs2LhpError
-from odcs2lhp.parser import OdcsParser
+from odcs2lhp.parsers import OdcsParser
 
 
 def test_parser_returns_contract_dict_when_contract_is_valid(sales_contract_path):

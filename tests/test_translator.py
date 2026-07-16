@@ -12,7 +12,7 @@ import pytest
 
 from odcs2lhp.discovery import SCD2_COLUMNS
 from odcs2lhp.errors import Odcs2LhpError
-from odcs2lhp.parser import OdcsParser
+from odcs2lhp.parsers import OdcsParser
 from odcs2lhp.translator import Artifact, translate_contract
 
 EXCLUDE = frozenset({"_processing_timestamp"}) | SCD2_COLUMNS
