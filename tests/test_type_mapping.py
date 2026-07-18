@@ -20,7 +20,7 @@ def _write_columns(properties: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]
     }
     artifacts = translate_contract(contract, stem="c")
     write = next(
-        a.data for a in artifacts if a.relative_path == "schemas/write/c__t_schema.yaml"
+        a.data for a in artifacts if a.relative_path == "c/1.0/write/schemas/t_schema.yaml"
     )
     return {c["name"]: c for c in write["columns"]}
 
@@ -35,7 +35,7 @@ def _expectations(properties: List[Dict[str, Any]]) -> Dict[str, str]:
     exp = next(
         a.data
         for a in artifacts
-        if a.relative_path == "expectations/c__t_expectations.yaml"
+        if a.relative_path == "c/1.0/transform/expectations/t_expectations.yaml"
     )
     return {e["name"]: e["expression"] for e in exp["expectations"]}
 

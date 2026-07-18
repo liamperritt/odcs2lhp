@@ -1,14 +1,17 @@
 """Translate a parsed ODCS contract into LHP sidecar artifacts.
 
-Each schema object in a contract produces five :class:`Artifact` sidecars:
+Each schema object in a contract produces five :class:`Artifact` sidecars,
+laid out under ``<stem>/<version>/<action_type>/<sidecar_type>/`` — grouped by
+the LHP pipeline stage (action) that consumes each one:
 
 - a **load** schema (cloudFiles read schema; columns named by ``physicalName``),
 - a **transform** schema (``column_mapping`` + ``type_casting`` for a
-  ``transform_type: schema`` action),
+  ``transform_type: schema`` action; ``_transform.yaml`` suffix),
+- an **expectations** file, applied in the transform stage
+  (``logicalTypeOptions`` predicates plus a NOT NULL check per ``required``
+  property),
 - a **write** schema (table_schema carrying per-column UC ``tags``),
-- a **tags** file (table-level UC tags),
-- an **expectations** file (``logicalTypeOptions`` predicates plus a NOT NULL
-  check per ``required`` property).
+- a **tags** file, applied in the write stage (table-level UC tags).
 
 Load and transform schemas exclude the operational-metadata and SCD2 columns
 (``exclude``): those are not sourced from the input data. The write schema
@@ -35,7 +38,7 @@ class Artifact:
     """A single sidecar file to write.
 
     :param relative_path: POSIX path relative to the output dir (``.lhp/odcs``),
-        e.g. ``schemas/load/sales__customer_schema.yaml``.
+        e.g. ``sales/1.0.0/load/schemas/customer_schema.yaml``.
     :param data: the YAML-serializable mapping to write.
     """
 
@@ -75,28 +78,29 @@ def _translate_object(
 ) -> List[Artifact]:
     object_name = obj["name"]
     properties = obj.get("properties", []) or []
-    prefix = f"{stem}__{slug(object_name)}"
+    base = f"{stem}/{version or 'unversioned'}"
+    name = slug(object_name)
 
     return [
         Artifact(
-            f"schemas/load/{prefix}_schema.yaml",
+            f"{base}/load/schemas/{name}_schema.yaml",
             _load_schema(obj, object_name, version, properties, exclude),
         ),
         Artifact(
-            f"schemas/transform/{prefix}_schema.yaml",
+            f"{base}/transform/schemas/{name}_transform.yaml",
             _transform_schema(properties, exclude),
         ),
         Artifact(
-            f"schemas/write/{prefix}_schema.yaml",
+            f"{base}/transform/expectations/{name}_expectations.yaml",
+            _expectations_file(object_name, properties),
+        ),
+        Artifact(
+            f"{base}/write/schemas/{name}_schema.yaml",
             _write_schema(obj, object_name, version, properties),
         ),
         Artifact(
-            f"tags/{prefix}_tags.yaml",
+            f"{base}/write/tags/{name}_tags.yaml",
             _tags_file(obj, object_name),
-        ),
-        Artifact(
-            f"expectations/{prefix}_expectations.yaml",
-            _expectations_file(object_name, properties),
         ),
     ]
 

@@ -29,7 +29,7 @@ def test_cli_defaults_contracts_dir_to_contracts_when_arg_omitted(tmp_path, fixt
     result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
-    assert (tmp_path / ".lhp" / "odcs" / "schemas" / "load").is_dir()
+    assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
 
 
 def test_cli_writes_all_five_artifact_kinds_under_dot_lhp_odcs(tmp_path, fixtures_dir):
@@ -39,11 +39,11 @@ def test_cli_writes_all_five_artifact_kinds_under_dot_lhp_odcs(tmp_path, fixture
 
     assert result.exit_code == 0
     odcs = tmp_path / ".lhp" / "odcs"
-    assert (odcs / "schemas" / "load" / "sales__customer_schema.yaml").is_file()
-    assert (odcs / "schemas" / "transform" / "sales__customer_schema.yaml").is_file()
-    assert (odcs / "schemas" / "write" / "sales__customer_schema.yaml").is_file()
-    assert (odcs / "tags" / "sales__customer_tags.yaml").is_file()
-    assert (odcs / "expectations" / "sales__customer_expectations.yaml").is_file()
+    assert (odcs / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml").is_file()
+    assert (odcs / "sales" / "1.0.0" / "transform" / "schemas" / "customer_transform.yaml").is_file()
+    assert (odcs / "sales" / "1.0.0" / "write" / "schemas" / "customer_schema.yaml").is_file()
+    assert (odcs / "sales" / "1.0.0" / "write" / "tags" / "customer_tags.yaml").is_file()
+    assert (odcs / "sales" / "1.0.0" / "transform" / "expectations" / "customer_expectations.yaml").is_file()
 
 
 def test_cli_honours_custom_contracts_dir_arg(tmp_path, fixtures_dir):
@@ -54,7 +54,7 @@ def test_cli_honours_custom_contracts_dir_arg(tmp_path, fixtures_dir):
     )
 
     assert result.exit_code == 0
-    assert (tmp_path / ".lhp" / "odcs" / "schemas" / "load").is_dir()
+    assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
 
 
 def test_cli_excludes_operational_metadata_when_lhp_yaml_declares_it(
@@ -65,7 +65,7 @@ def test_cli_excludes_operational_metadata_when_lhp_yaml_declares_it(
     CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
 
     load_schema = load_yaml(
-        tmp_path / ".lhp" / "odcs" / "schemas" / "load" / "sales__customer_schema.yaml"
+        tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml"
     )
     names = {c["name"] for c in load_schema["columns"]}
     assert "_processing_timestamp" not in names
@@ -80,7 +80,7 @@ def test_cli_writes_output_to_custom_output_dir_when_given(tmp_path, fixtures_di
     )
 
     assert result.exit_code == 0
-    assert (out / "schemas" / "load" / "sales__customer_schema.yaml").is_file()
+    assert (out / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml").is_file()
 
 
 def test_cli_reports_no_contracts_when_dir_empty(tmp_path):
@@ -115,9 +115,9 @@ def test_cli_produces_one_artifact_set_per_object_when_multi_object(
     result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
-    write_dir = tmp_path / ".lhp" / "odcs" / "schemas" / "write"
-    assert (write_dir / "multi__orders_schema.yaml").is_file()
-    assert (write_dir / "multi__products_schema.yaml").is_file()
+    write_dir = tmp_path / ".lhp" / "odcs" / "multi" / "2.0" / "write" / "schemas"
+    assert (write_dir / "orders_schema.yaml").is_file()
+    assert (write_dir / "products_schema.yaml").is_file()
 
 
 def test_cli_lists_each_file_when_verbose(tmp_path, fixtures_dir):
@@ -127,7 +127,7 @@ def test_cli_lists_each_file_when_verbose(tmp_path, fixtures_dir):
 
     assert result.exit_code == 0
     assert "wrote" in result.output
-    assert "sales__customer_schema.yaml" in result.output
+    assert "customer_schema.yaml" in result.output
 
 
 def test_cli_discovers_project_root_by_walking_up_when_not_given(
@@ -141,7 +141,7 @@ def test_cli_discovers_project_root_by_walking_up_when_not_given(
     result = CliRunner().invoke(cli, [])
 
     assert result.exit_code == 0
-    assert (tmp_path / ".lhp" / "odcs" / "schemas" / "load").is_dir()
+    assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
 
 
 def test_main_exits_one_when_contract_invalid(tmp_path, fixtures_dir, monkeypatch):
