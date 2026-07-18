@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from odcs2lhp.mapper import quote_identifier, sanitize_name
 from odcs2lhp.translator import translate_contract
 
 
@@ -134,8 +135,8 @@ def test_constraints_derive_numeric_min_and_max():
         ]
     )
 
-    assert exprs["n_min"] == "n >= 1"
-    assert exprs["n_max"] == "n <= 10"
+    assert exprs["n_min"] == "`n` >= 1"
+    assert exprs["n_max"] == "`n` <= 10"
 
 
 def test_constraints_derive_numeric_exclusive_bounds():
@@ -149,8 +150,8 @@ def test_constraints_derive_numeric_exclusive_bounds():
         ]
     )
 
-    assert exprs["n_exclusive_min"] == "n > 0"
-    assert exprs["n_exclusive_max"] == "n < 100"
+    assert exprs["n_exclusive_min"] == "`n` > 0"
+    assert exprs["n_exclusive_max"] == "`n` < 100"
 
 
 def test_constraints_derive_date_bounds_as_quoted_literals():
@@ -167,8 +168,8 @@ def test_constraints_derive_date_bounds_as_quoted_literals():
         ]
     )
 
-    assert exprs["d_min"] == "d >= '2020-01-01'"
-    assert exprs["d_max"] == "d <= '2030-12-31'"
+    assert exprs["d_min"] == "`d` >= '2020-01-01'"
+    assert exprs["d_max"] == "`d` <= '2030-12-31'"
 
 
 def test_constraints_derive_timestamp_exclusive_bounds():
@@ -185,8 +186,8 @@ def test_constraints_derive_timestamp_exclusive_bounds():
         ]
     )
 
-    assert exprs["ts_exclusive_min"] == "ts > '2020-01-01T00:00:00'"
-    assert exprs["ts_exclusive_max"] == "ts < '2030-01-01T00:00:00'"
+    assert exprs["ts_exclusive_min"] == "`ts` > '2020-01-01T00:00:00'"
+    assert exprs["ts_exclusive_max"] == "`ts` < '2030-01-01T00:00:00'"
 
 
 def test_constraints_guard_array_max_items():
@@ -201,7 +202,7 @@ def test_constraints_guard_array_max_items():
         ]
     )
 
-    assert exprs["arr_max_items"] == "arr IS NULL OR (size(arr) <= 5)"
+    assert exprs["arr_max_items"] == "`arr` IS NULL OR (size(`arr`) <= 5)"
 
 
 def test_constraints_guard_object_required_fields():
@@ -215,7 +216,7 @@ def test_constraints_guard_object_required_fields():
         ]
     )
 
-    assert exprs["o_street_not_null"] == "o IS NULL OR (o.street IS NOT NULL)"
+    assert exprs["o_street_not_null"] == "`o` IS NULL OR (`o`.`street` IS NOT NULL)"
 
 
 def test_constraints_render_float_multiple_of_without_trailing_zero():
@@ -229,4 +230,64 @@ def test_constraints_render_float_multiple_of_without_trailing_zero():
         ]
     )
 
-    assert exprs["n_multiple_of"] == "n % 1 = 0"
+    assert exprs["n_multiple_of"] == "`n` % 1 = 0"
+
+
+# --- backtick quoting of column names in conditions -------------------------
+
+
+def test_quote_identifier_doubles_embedded_backticks():
+    assert quote_identifier("cust id") == "`cust id`"
+    assert quote_identifier("a`b") == "`a``b`"
+
+
+def test_sanitize_name_replaces_special_characters_with_underscore():
+    assert sanitize_name("cust id") == "cust_id"
+    assert sanitize_name("a`b") == "a_b"
+    assert sanitize_name("order#") == "order_"
+    assert sanitize_name("clean_1") == "clean_1"
+
+
+def test_constraints_backtick_quote_column_name_in_condition():
+    exprs = _expectations(
+        [
+            {
+                "name": "cust id",
+                "logicalType": "string",
+                "logicalTypeOptions": {"minLength": 3},
+            }
+        ]
+    )
+
+    assert exprs["cust_id_min_length"] == "length(`cust id`) >= 3"
+
+
+def test_constraints_escape_embedded_backtick_in_column_name():
+    exprs = _expectations(
+        [
+            {
+                "name": "a`b",
+                "logicalType": "string",
+                "logicalTypeOptions": {"pattern": "x"},
+            }
+        ]
+    )
+
+    assert exprs["a_b_pattern"] == "`a``b` RLIKE 'x'"
+
+
+def test_constraints_quote_both_object_and_field_names():
+    exprs = _expectations(
+        [
+            {
+                "name": "o",
+                "logicalType": "object",
+                "logicalTypeOptions": {"required": ["street name"]},
+            }
+        ]
+    )
+
+    assert (
+        exprs["o_street_name_not_null"]
+        == "`o` IS NULL OR (`o`.`street name` IS NOT NULL)"
+    )

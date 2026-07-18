@@ -27,6 +27,8 @@ from .mapper import (
     odcs_property_to_constraints,
     odcs_tags_to_uc,
     odcs_type_to_spark,
+    quote_identifier,
+    sanitize_name,
     slug,
 )
 
@@ -221,8 +223,11 @@ def _expectations_file(
 ) -> Dict[str, Any]:
     """Data-quality expectations: NOT NULL per ``required`` + ``logicalTypeOptions``.
 
-    Each property contributes, in order, an ``<col> IS NOT NULL`` check when
+    Each property contributes, in order, a ``<col> IS NOT NULL`` check when
     ``required: true`` followed by its ``logicalTypeOptions``-derived predicates.
+    The column name is backtick-quoted inside the expression (names may contain
+    spaces/special characters); the expectation ``name`` uses the column name
+    sanitized to an identifier-safe form (:func:`odcs2lhp.mapper.sanitize_name`).
     ``failureAction`` is ``fail`` for a ``criticalDataElement`` property, else
     ``warn``.
     """
@@ -233,8 +238,8 @@ def _expectations_file(
         if prop.get("required"):
             expectations.append(
                 {
-                    "name": f"{name}_not_null",
-                    "expression": f"{name} IS NOT NULL",
+                    "name": f"{sanitize_name(name)}_not_null",
+                    "expression": f"{quote_identifier(name)} IS NOT NULL",
                     "failureAction": failure_action,
                 }
             )

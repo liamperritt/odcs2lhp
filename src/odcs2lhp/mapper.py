@@ -26,6 +26,22 @@ def slug(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", name)
 
 
+def quote_identifier(name: str) -> str:
+    """Backtick-quote a Spark SQL identifier, doubling any embedded backtick."""
+    return "`" + str(name).replace("`", "``") + "`"
+
+
+def sanitize_name(name: str) -> str:
+    """Replace every non-alphanumeric/underscore character with an underscore.
+
+    Used to build expectation *names* (identifiers), which — unlike the SQL
+    condition — cannot be quoted. Not injective: distinct source names may map
+    to the same result (e.g. ``cust id`` and ``cust_id``), so callers accept the
+    small collision risk this carries.
+    """
+    return re.sub(r"[^A-Za-z0-9_]", "_", str(name))
+
+
 # ---------------------------------------------------------------------------
 # Type mapping  (ODCS property -> Spark DDL type)
 # ---------------------------------------------------------------------------
@@ -153,17 +169,23 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
     """Derive row-level expectation predicates for a single ODCS property.
 
     Returns ``(predicate, name)`` pairs (order preserved) from the property's
-    ``logicalTypeOptions``. Scalar comparisons are emitted bare (DLT/SDP treats a
-    NULL-valued expectation as passing); array ``size()`` and object nested
-    ``IS NOT NULL`` checks are NULL-guarded. The property ``required`` flag is
-    NOT translated here (see :func:`odcs2lhp.translator` for the NOT NULL
-    expectation). Unknown options are skipped.
+    ``logicalTypeOptions``. Column names are backtick-quoted inside the SQL
+    conditions (so names with spaces/special characters stay valid); the
+    expectation ``name`` suffixes use the column name sanitized to an
+    identifier-safe form (:func:`sanitize_name`). Scalar comparisons
+    are emitted bare (DLT/SDP treats a NULL-valued expectation as passing); array
+    ``size()`` and object nested ``IS NOT NULL`` checks are NULL-guarded. The
+    property ``required`` flag is NOT translated here (see
+    :func:`odcs2lhp.translator` for the NOT NULL expectation). Unknown options are
+    skipped.
     """
     col = prop["name"]
+    qcol = quote_identifier(col)
+    scol = sanitize_name(col)
     constraints: List[Tuple[str, str]] = []
 
     def _guard(predicate: str) -> str:
-        return f"{col} IS NULL OR ({predicate})"
+        return f"{qcol} IS NULL OR ({predicate})"
 
     logical = prop.get("logicalType")
     options = prop.get("logicalTypeOptions") or {}
@@ -171,69 +193,70 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
     if logical == "string":
         if "minLength" in options:
             constraints.append(
-                (f"length({col}) >= {_num(options['minLength'])}", f"{col}_min_length")
+                (f"length({qcol}) >= {_num(options['minLength'])}", f"{scol}_min_length")
             )
         if "maxLength" in options:
             constraints.append(
-                (f"length({col}) <= {_num(options['maxLength'])}", f"{col}_max_length")
+                (f"length({qcol}) <= {_num(options['maxLength'])}", f"{scol}_max_length")
             )
         if "pattern" in options:
             regex = str(options["pattern"]).replace("'", "''")
-            constraints.append((f"{col} RLIKE '{regex}'", f"{col}_pattern"))
+            constraints.append((f"{qcol} RLIKE '{regex}'", f"{scol}_pattern"))
 
     elif logical in ("integer", "number"):
         if "minimum" in options:
-            constraints.append((f"{col} >= {_num(options['minimum'])}", f"{col}_min"))
+            constraints.append((f"{qcol} >= {_num(options['minimum'])}", f"{scol}_min"))
         if "maximum" in options:
-            constraints.append((f"{col} <= {_num(options['maximum'])}", f"{col}_max"))
+            constraints.append((f"{qcol} <= {_num(options['maximum'])}", f"{scol}_max"))
         if "exclusiveMinimum" in options:
             constraints.append(
-                (f"{col} > {_num(options['exclusiveMinimum'])}", f"{col}_exclusive_min")
+                (f"{qcol} > {_num(options['exclusiveMinimum'])}", f"{scol}_exclusive_min")
             )
         if "exclusiveMaximum" in options:
             constraints.append(
-                (f"{col} < {_num(options['exclusiveMaximum'])}", f"{col}_exclusive_max")
+                (f"{qcol} < {_num(options['exclusiveMaximum'])}", f"{scol}_exclusive_max")
             )
         if "multipleOf" in options:
             constraints.append(
-                (f"{col} % {_num(options['multipleOf'])} = 0", f"{col}_multiple_of")
+                (f"{qcol} % {_num(options['multipleOf'])} = 0", f"{scol}_multiple_of")
             )
 
     elif logical in ("date", "timestamp", "time"):
         if "minimum" in options:
-            constraints.append((f"{col} >= '{options['minimum']}'", f"{col}_min"))
+            constraints.append((f"{qcol} >= '{options['minimum']}'", f"{scol}_min"))
         if "maximum" in options:
-            constraints.append((f"{col} <= '{options['maximum']}'", f"{col}_max"))
+            constraints.append((f"{qcol} <= '{options['maximum']}'", f"{scol}_max"))
         if "exclusiveMinimum" in options:
             constraints.append(
-                (f"{col} > '{options['exclusiveMinimum']}'", f"{col}_exclusive_min")
+                (f"{qcol} > '{options['exclusiveMinimum']}'", f"{scol}_exclusive_min")
             )
         if "exclusiveMaximum" in options:
             constraints.append(
-                (f"{col} < '{options['exclusiveMaximum']}'", f"{col}_exclusive_max")
+                (f"{qcol} < '{options['exclusiveMaximum']}'", f"{scol}_exclusive_max")
             )
 
     elif logical == "array":
         if "minItems" in options:
             constraints.append(
-                (_guard(f"size({col}) >= {_num(options['minItems'])}"),
-                 f"{col}_min_items")
+                (_guard(f"size({qcol}) >= {_num(options['minItems'])}"),
+                 f"{scol}_min_items")
             )
         if "maxItems" in options:
             constraints.append(
-                (_guard(f"size({col}) <= {_num(options['maxItems'])}"),
-                 f"{col}_max_items")
+                (_guard(f"size({qcol}) <= {_num(options['maxItems'])}"),
+                 f"{scol}_max_items")
             )
         if options.get("uniqueItems") is True:
             constraints.append(
-                (_guard(f"size({col}) = size(array_distinct({col}))"),
-                 f"{col}_unique_items")
+                (_guard(f"size({qcol}) = size(array_distinct({qcol}))"),
+                 f"{scol}_unique_items")
             )
 
     elif logical == "object":
         for field in options.get("required", []) or []:
             constraints.append(
-                (_guard(f"{col}.{field} IS NOT NULL"), f"{col}_{field}_not_null")
+                (_guard(f"{qcol}.{quote_identifier(field)} IS NOT NULL"),
+                 f"{scol}_{sanitize_name(field)}_not_null")
             )
 
     return constraints

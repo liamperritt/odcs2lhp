@@ -204,7 +204,27 @@ def test_expectations_emit_not_null_when_property_required(sales):
     exp = _artifact(sales, "sales/1.0.0/transform/expectations/customer_expectations.yaml")
 
     entries = {e["name"]: e for e in exp["expectations"]}
-    assert entries["customer_id_not_null"]["expression"] == "customer_id IS NOT NULL"
+    assert entries["customer_id_not_null"]["expression"] == "`customer_id` IS NOT NULL"
+
+
+def test_expectations_backtick_quote_required_column_when_name_has_special_chars():
+    contract = {
+        "version": "1.0",
+        "schema": [
+            {
+                "name": "t",
+                "properties": [
+                    {"name": "cust id", "logicalType": "string", "required": True}
+                ],
+            }
+        ],
+    }
+    artifacts = translate_contract(contract, stem="c")
+
+    exp = _artifact(artifacts, "c/1.0/transform/expectations/t_expectations.yaml")
+
+    entries = {e["name"]: e for e in exp["expectations"]}
+    assert entries["cust_id_not_null"]["expression"] == "`cust id` IS NOT NULL"
 
 
 def test_expectations_omit_not_null_when_property_not_required(sales):
@@ -218,19 +238,19 @@ def test_expectations_derive_string_predicates_from_logical_type_options(sales):
     exp = _artifact(sales, "sales/1.0.0/transform/expectations/customer_expectations.yaml")
 
     by_name = {e["name"]: e["expression"] for e in exp["expectations"]}
-    assert by_name["email_min_length"] == "length(email) >= 3"
-    assert by_name["email_max_length"] == "length(email) <= 320"
-    assert by_name["email_pattern"] == r"email RLIKE '^[^@]+@[^@]+\.[^@]+$'"
+    assert by_name["email_min_length"] == "length(`email`) >= 3"
+    assert by_name["email_max_length"] == "length(`email`) <= 320"
+    assert by_name["email_pattern"] == r"`email` RLIKE '^[^@]+@[^@]+\.[^@]+$'"
 
 
 def test_expectations_guard_array_predicates_against_null(sales):
     exp = _artifact(sales, "sales/1.0.0/transform/expectations/customer_expectations.yaml")
 
     by_name = {e["name"]: e["expression"] for e in exp["expectations"]}
-    assert by_name["labels_min_items"] == "labels IS NULL OR (size(labels) >= 1)"
+    assert by_name["labels_min_items"] == "`labels` IS NULL OR (size(`labels`) >= 1)"
     assert (
         by_name["labels_unique_items"]
-        == "labels IS NULL OR (size(labels) = size(array_distinct(labels)))"
+        == "`labels` IS NULL OR (size(`labels`) = size(array_distinct(`labels`)))"
     )
 
 
