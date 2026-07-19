@@ -24,7 +24,7 @@ odcs2lhp translate
 odcs2lhp translate --contracts-dir data_contracts
 
 # other options
-odcs2lhp translate --project-root /path/to/project --output-dir /path/to/out -v
+odcs2lhp translate --project-root /path/to/project -v
 ```
 
 Each run wipes and rebuilds the output directory, so the sidecars are always a

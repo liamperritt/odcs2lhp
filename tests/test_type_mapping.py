@@ -222,6 +222,21 @@ def test_constraints_escape_embedded_backtick_in_column_name():
     assert exprs["a_b_pattern"] == "`a``b` RLIKE 'x'"
 
 
+def test_constraints_escape_backslash_in_pattern():
+    exprs = _expectations(
+        [
+            {
+                "name": "code",
+                "logicalType": "string",
+                "physicalType": "STRING",
+                "logicalTypeOptions": {"pattern": r"\d+"},
+            }
+        ]
+    )
+
+    assert exprs["code_pattern"] == r"`code` RLIKE '\\d+'"
+
+
 def test_constraints_quote_both_object_and_field_names():
     exprs = _expectations(
         [

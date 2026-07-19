@@ -100,7 +100,7 @@ def test_load_schema_excludes_scd2_columns_always(sales):
     assert names.isdisjoint(SCD2_COLUMNS)
 
 
-def test_load_schema_maps_array_logical_type_to_ddl(sales):
+def test_load_schema_uses_physical_type_verbatim_for_array_column(sales):
     schema = _artifact(sales, "sales/1.0.0/load/schemas/customer_schema.yaml")
 
     assert _column(schema, "labels")["type"] == "ARRAY<STRING>"
@@ -245,7 +245,7 @@ def test_expectations_derive_string_predicates_from_logical_type_options(sales):
     by_name = {e["name"]: e["expression"] for e in exp["expectations"]}
     assert by_name["email_min_length"] == "length(`email`) >= 3"
     assert by_name["email_max_length"] == "length(`email`) <= 320"
-    assert by_name["email_pattern"] == r"`email` RLIKE '^[^@]+@[^@]+\.[^@]+$'"
+    assert by_name["email_pattern"] == r"`email` RLIKE '^[^@]+@[^@]+\\.[^@]+$'"
 
 
 def test_expectations_guard_array_predicates_against_null(sales):
@@ -280,6 +280,76 @@ def test_expectations_use_wrapped_shape_with_version_and_table(sales):
     assert exp["version"] == "1.0"
     assert exp["table"] == "customer"
     assert isinstance(exp["expectations"], list)
+
+
+# --- output-path safety -----------------------------------------------------
+
+
+def _one_object_contract(version):
+    return {
+        "version": version,
+        "schema": [
+            {"name": "t", "properties": [{"name": "c", "physicalType": "STRING"}]}
+        ],
+    }
+
+
+def test_translate_contract_slugs_unsafe_characters_in_version():
+    contract = _one_object_contract("1.0/beta")
+
+    artifacts = translate_contract(contract, stem="sales")
+
+    for artifact in artifacts:
+        assert artifact.relative_path.startswith("sales/1.0_beta/")
+
+
+def test_translate_contract_raises_when_version_is_path_traversal():
+    contract = _one_object_contract("..")
+
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        translate_contract(contract, stem="sales")
+
+    assert exc_info.value.code == "ODCS-PATH-001"
+
+
+def test_translate_contract_raises_when_stem_is_path_traversal():
+    contract = _one_object_contract("1.0")
+
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        translate_contract(contract, stem="..")
+
+    assert exc_info.value.code == "ODCS-PATH-001"
+
+
+def test_expectations_deduplicate_colliding_names_when_columns_sanitize_alike():
+    contract = {
+        "version": "1.0",
+        "schema": [
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "cust id",
+                        "logicalType": "string",
+                        "physicalType": "STRING",
+                        "logicalTypeOptions": {"minLength": 3},
+                    },
+                    {
+                        "name": "cust_id",
+                        "logicalType": "string",
+                        "physicalType": "STRING",
+                        "logicalTypeOptions": {"minLength": 3},
+                    },
+                ],
+            }
+        ],
+    }
+    artifacts = translate_contract(contract, stem="c")
+
+    exp = _artifact(artifacts, "c/1.0/transform/expectations/t_expectations.yaml")
+
+    names = [e["name"] for e in exp["expectations"]]
+    assert names == ["cust_id_min_length", "cust_id_min_length_2"]
 
 
 # --- errors -----------------------------------------------------------------

@@ -50,21 +50,17 @@ def cli() -> None:
     help="Project root. Defaults to the nearest ancestor of the current "
     "directory containing lhp.yaml, else the current directory.",
 )
-@click.option(
-    "--output-dir",
-    "output_dir_opt",
-    default=None,
-    type=click.Path(path_type=Path),
-    help="Where to write sidecar files. Defaults to <project-root>/.lhp/odcs.",
-)
 @click.option("-v", "--verbose", is_flag=True, help="Print each file written.")
 def translate(
     contracts_dir: str,
     project_root_opt: Optional[Path],
-    output_dir_opt: Optional[Path],
     verbose: bool,
 ) -> None:
-    """Translate ODCS data contracts into LHP YAML sidecar files."""
+    """Translate ODCS data contracts into LHP YAML sidecar files.
+
+    Sidecars are always written under ``<project-root>/.lhp/odcs`` (which LHP
+    gitignores); this location is not configurable.
+    """
     cwd = Path.cwd()
     project_root = (
         project_root_opt.resolve()
@@ -76,11 +72,7 @@ def translate(
     if not contracts_path.is_absolute():
         contracts_path = project_root / contracts_path
 
-    output_dir = (
-        output_dir_opt.resolve()
-        if output_dir_opt is not None
-        else project_root / DEFAULT_OUTPUT_SUBDIR
-    )
+    output_dir = project_root / DEFAULT_OUTPUT_SUBDIR
 
     contracts = discover_contracts(contracts_path)
     if not contracts:

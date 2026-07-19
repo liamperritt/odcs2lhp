@@ -28,6 +28,24 @@ def slug(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", name)
 
 
+def path_segment(value: str, *, field: str) -> str:
+    """Slug ``value`` for use as a single output-path segment; reject unsafe results.
+
+    ``slug`` maps path separators to underscores, so the only remaining hazards are
+    a value that collapses to empty, ``.``, or ``..`` (``slug`` keeps dots) — those
+    would escape or alias the output directory, so they raise.
+    """
+    seg = slug(str(value))
+    if seg in ("", ".", ".."):
+        raise Odcs2LhpError(
+            "ODCS-PATH-001",
+            f"Cannot build a safe output path: {field} {value!r} is empty or a "
+            "path-traversal segment after sanitizing.",
+            suggestions=[f"Use a {field} that contains at least one normal character."],
+        )
+    return seg
+
+
 def quote_identifier(name: str) -> str:
     """Backtick-quote a Spark SQL identifier, doubling any embedded backtick."""
     return "`" + str(name).replace("`", "``") + "`"
@@ -153,7 +171,7 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
                 (f"length({qcol}) <= {_num(options['maxLength'])}", f"{scol}_max_length")
             )
         if "pattern" in options:
-            regex = str(options["pattern"]).replace("'", "''")
+            regex = str(options["pattern"]).replace("\\", "\\\\").replace("'", "''")
             constraints.append((f"{qcol} RLIKE '{regex}'", f"{scol}_pattern"))
 
     elif logical in ("integer", "number"):

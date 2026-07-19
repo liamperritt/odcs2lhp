@@ -27,6 +27,7 @@ from .mapper import (
     odcs_property_to_constraints,
     odcs_tags_to_uc,
     odcs_type_to_spark,
+    path_segment,
     quote_identifier,
     sanitize_name,
     slug,
@@ -80,7 +81,9 @@ def _translate_object(
 ) -> List[Artifact]:
     object_name = obj["name"]
     properties = obj.get("properties", []) or []
-    base = f"{stem}/{version or 'unversioned'}"
+    stem_seg = path_segment(stem, field="contract stem")
+    version_seg = path_segment(version or "unversioned", field="version")
+    base = f"{stem_seg}/{version_seg}"
     name = slug(object_name)
 
     return [
@@ -228,9 +231,19 @@ def _expectations_file(
     The column name is backtick-quoted inside the expression (names may contain
     spaces/special characters); the expectation ``name`` uses the column name
     sanitized to an identifier-safe form (:func:`odcs2lhp.mapper.sanitize_name`).
-    ``failureAction`` is ``fail`` for a ``criticalDataElement`` property, else
-    ``warn``.
+    Because sanitizing is not injective, names that would collide are made unique
+    by appending ``_<n>`` (n>=2). ``failureAction`` is ``fail`` for a
+    ``criticalDataElement`` property, else ``warn``.
     """
+    used: set[str] = set()
+
+    def _unique(base_name: str) -> str:
+        candidate, n = base_name, 2
+        while candidate in used:
+            candidate, n = f"{base_name}_{n}", n + 1
+        used.add(candidate)
+        return candidate
+
     expectations: List[Dict[str, str]] = []
     for prop in properties:
         name = prop["name"]
@@ -238,7 +251,7 @@ def _expectations_file(
         if prop.get("required"):
             expectations.append(
                 {
-                    "name": f"{sanitize_name(name)}_not_null",
+                    "name": _unique(f"{sanitize_name(name)}_not_null"),
                     "expression": f"{quote_identifier(name)} IS NOT NULL",
                     "failureAction": failure_action,
                 }
@@ -246,7 +259,7 @@ def _expectations_file(
         for predicate, constraint_name in odcs_property_to_constraints(prop):
             expectations.append(
                 {
-                    "name": constraint_name,
+                    "name": _unique(constraint_name),
                     "expression": predicate,
                     "failureAction": failure_action,
                 }

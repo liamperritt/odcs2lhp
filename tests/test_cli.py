@@ -71,16 +71,14 @@ def test_cli_excludes_operational_metadata_when_lhp_yaml_declares_it(
     assert "_processing_timestamp" not in names
 
 
-def test_cli_writes_output_to_custom_output_dir_when_given(tmp_path, fixtures_dir):
+def test_cli_rejects_output_dir_option_as_unknown(tmp_path, fixtures_dir):
     _make_project(tmp_path, fixtures_dir)
-    out = tmp_path / "custom_out"
 
     result = CliRunner().invoke(
-        cli, ["translate", "--project-root", str(tmp_path), "--output-dir", str(out)]
+        cli, ["translate", "--project-root", str(tmp_path), "--output-dir", str(tmp_path)]
     )
 
-    assert result.exit_code == 0
-    assert (out / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml").is_file()
+    assert result.exit_code != 0
 
 
 def test_cli_reports_no_contracts_when_dir_empty(tmp_path):
