@@ -26,7 +26,7 @@ def _make_project(tmp_path, fixtures_dir, *, with_lhp_yaml=True, contracts="cont
 def test_cli_defaults_contracts_dir_to_contracts_when_arg_omitted(tmp_path, fixtures_dir):
     _make_project(tmp_path, fixtures_dir)
 
-    result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
+    result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
     assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
@@ -35,7 +35,7 @@ def test_cli_defaults_contracts_dir_to_contracts_when_arg_omitted(tmp_path, fixt
 def test_cli_writes_all_five_artifact_kinds_under_dot_lhp_odcs(tmp_path, fixtures_dir):
     _make_project(tmp_path, fixtures_dir)
 
-    result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
+    result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
     odcs = tmp_path / ".lhp" / "odcs"
@@ -50,7 +50,7 @@ def test_cli_honours_custom_contracts_dir_arg(tmp_path, fixtures_dir):
     _make_project(tmp_path, fixtures_dir, contracts="data_contracts")
 
     result = CliRunner().invoke(
-        cli, ["--project-root", str(tmp_path), "--contracts-dir", "data_contracts"]
+        cli, ["translate", "--project-root", str(tmp_path), "--contracts-dir", "data_contracts"]
     )
 
     assert result.exit_code == 0
@@ -62,7 +62,7 @@ def test_cli_excludes_operational_metadata_when_lhp_yaml_declares_it(
 ):
     _make_project(tmp_path, fixtures_dir, with_lhp_yaml=True)
 
-    CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
+    CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     load_schema = load_yaml(
         tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml"
@@ -76,7 +76,7 @@ def test_cli_writes_output_to_custom_output_dir_when_given(tmp_path, fixtures_di
     out = tmp_path / "custom_out"
 
     result = CliRunner().invoke(
-        cli, ["--project-root", str(tmp_path), "--output-dir", str(out)]
+        cli, ["translate", "--project-root", str(tmp_path), "--output-dir", str(out)]
     )
 
     assert result.exit_code == 0
@@ -87,7 +87,7 @@ def test_cli_reports_no_contracts_when_dir_empty(tmp_path):
     (tmp_path / "lhp.yaml").write_text("name: p\n")
     (tmp_path / "contracts").mkdir()
 
-    result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
+    result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
     assert "No ODCS contracts found" in result.output
@@ -99,7 +99,7 @@ def test_cli_exits_nonzero_when_a_contract_is_invalid(tmp_path, fixtures_dir):
     contracts_dir.mkdir()
     shutil.copy(fixtures_dir / "broken.contract.yaml", contracts_dir / "broken.contract.yaml")
 
-    result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
+    result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code != 0
 
@@ -112,7 +112,7 @@ def test_cli_produces_one_artifact_set_per_object_when_multi_object(
     contracts_dir.mkdir()
     shutil.copy(fixtures_dir / "multi.odcs.yaml", contracts_dir / "multi.odcs.yaml")
 
-    result = CliRunner().invoke(cli, ["--project-root", str(tmp_path)])
+    result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
     write_dir = tmp_path / ".lhp" / "odcs" / "multi" / "2.0" / "write" / "schemas"
@@ -123,7 +123,7 @@ def test_cli_produces_one_artifact_set_per_object_when_multi_object(
 def test_cli_lists_each_file_when_verbose(tmp_path, fixtures_dir):
     _make_project(tmp_path, fixtures_dir)
 
-    result = CliRunner().invoke(cli, ["--project-root", str(tmp_path), "-v"])
+    result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path), "-v"])
 
     assert result.exit_code == 0
     assert "wrote" in result.output
@@ -138,7 +138,7 @@ def test_cli_discovers_project_root_by_walking_up_when_not_given(
     nested.mkdir()
     monkeypatch.chdir(nested)
 
-    result = CliRunner().invoke(cli, [])
+    result = CliRunner().invoke(cli, ["translate"])
 
     assert result.exit_code == 0
     assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
@@ -152,9 +152,22 @@ def test_main_exits_one_when_contract_invalid(tmp_path, fixtures_dir, monkeypatc
         fixtures_dir / "broken.contract.yaml", contracts_dir / "broken.contract.yaml"
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("sys.argv", ["odcs2lhp"])
+    monkeypatch.setattr("sys.argv", ["odcs2lhp", "translate"])
 
     with pytest.raises(SystemExit) as exc_info:
         main()
 
     assert exc_info.value.code == 1
+
+
+def test_cli_shows_translate_in_help():
+    result = CliRunner().invoke(cli, ["--help"])
+
+    assert result.exit_code == 0
+    assert "translate" in result.output
+
+
+def test_cli_errors_when_unknown_subcommand():
+    result = CliRunner().invoke(cli, ["frobnicate"])
+
+    assert result.exit_code != 0

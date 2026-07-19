@@ -1,8 +1,9 @@
 """Command-line entry point for odcs2lhp.
 
-Discovers ODCS contracts, translates each schema object into LHP sidecar files,
-and writes them under ``<project-root>/.lhp/odcs/``. Run it before
-``lhp validate`` / ``lhp generate``.
+Exposes an ``odcs2lhp`` command group. The ``translate`` subcommand discovers
+ODCS contracts, translates each schema object into LHP sidecar files, and writes
+them under ``<project-root>/.lhp/odcs/`` (wiped fresh each run). Run
+``odcs2lhp translate`` before ``lhp validate`` / ``lhp generate``.
 """
 
 from __future__ import annotations
@@ -23,11 +24,16 @@ from .discovery import (
 from .errors import Odcs2LhpError
 from .parser import OdcsParser
 from .translator import translate_contract
-from .writer import DEFAULT_OUTPUT_SUBDIR, write_artifacts
+from .writer import DEFAULT_OUTPUT_SUBDIR, reset_output_dir, write_artifacts
 
 
-@click.command(name="odcs2lhp")
+@click.group(name="odcs2lhp")
 @click.version_option(__version__, prog_name="odcs2lhp")
+def cli() -> None:
+    """Tools for translating ODCS data contracts into LHP metadata."""
+
+
+@cli.command(name="translate")
 @click.option(
     "--contracts-dir",
     "contracts_dir",
@@ -52,7 +58,7 @@ from .writer import DEFAULT_OUTPUT_SUBDIR, write_artifacts
     help="Where to write sidecar files. Defaults to <project-root>/.lhp/odcs.",
 )
 @click.option("-v", "--verbose", is_flag=True, help="Print each file written.")
-def cli(
+def translate(
     contracts_dir: str,
     project_root_opt: Optional[Path],
     output_dir_opt: Optional[Path],
@@ -84,7 +90,9 @@ def cli(
     exclude = exclusion_columns(project_root)
     parser = OdcsParser()
 
-    total_files = 0
+    # Parse and translate every contract up front, so that a failure in any one
+    # of them aborts the run before we touch the existing output directory.
+    translated = []
     for contract_file in contracts:
         contract = parser.parse(contract_file)
         artifacts = translate_contract(
@@ -92,6 +100,12 @@ def cli(
             stem=contract_stem(contract_file),
             exclude=exclude,
         )
+        translated.append((contract_file, artifacts))
+
+    # Everything parsed and translated cleanly: wipe, then write fresh.
+    reset_output_dir(output_dir)
+    total_files = 0
+    for contract_file, artifacts in translated:
         written = write_artifacts(artifacts, output_dir)
         total_files += len(written)
         if verbose:

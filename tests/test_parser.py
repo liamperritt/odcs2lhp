@@ -29,6 +29,26 @@ def test_parser_raises_when_file_missing(tmp_path):
     assert exc_info.value.code == "ODCS-IO-001"
 
 
+def test_parser_raises_when_file_is_empty(tmp_path):
+    path = tmp_path / "empty.yaml"
+    path.write_text("", encoding="utf-8")
+
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        OdcsParser().parse(path)
+
+    assert exc_info.value.code == "ODCS-IO-003"
+
+
+def test_parser_raises_when_file_is_only_whitespace_and_comments(tmp_path):
+    path = tmp_path / "blank.yaml"
+    path.write_text("# just a comment\n\n", encoding="utf-8")
+
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        OdcsParser().parse(path)
+
+    assert exc_info.value.code == "ODCS-IO-003"
+
+
 def test_parser_raises_when_file_has_multiple_documents(tmp_path):
     path = tmp_path / "multi_doc.yaml"
     path.write_text("a: 1\n---\nb: 2\n")

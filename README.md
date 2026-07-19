@@ -18,19 +18,22 @@ pip install -e .   # from this directory
 
 ```bash
 # from your LHP project root (default contracts dir is ./contracts)
-odcs2lhp
+odcs2lhp translate
 
 # custom contracts directory
-odcs2lhp --contracts-dir data_contracts
+odcs2lhp translate --contracts-dir data_contracts
 
 # other options
-odcs2lhp --project-root /path/to/project --output-dir /path/to/out -v
+odcs2lhp translate --project-root /path/to/project --output-dir /path/to/out -v
 ```
 
-`odcs2lhp` runs *before* `lhp validate` / `lhp generate`:
+Each run wipes and rebuilds the output directory, so the sidecars are always a
+fresh reflection of your contracts.
+
+`odcs2lhp translate` runs *before* `lhp validate` / `lhp generate`:
 
 ```bash
-odcs2lhp && lhp validate --env dev && lhp generate --env dev
+odcs2lhp translate && lhp validate --env dev && lhp generate --env dev
 ```
 
 ## What it writes
