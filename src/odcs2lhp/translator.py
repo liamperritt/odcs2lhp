@@ -60,7 +60,7 @@ def translate_contract(
     :param stem: the source contract filename stem (collision-safe prefix).
     :param exclude: column names to omit from the load + transform schemas
         (operational-metadata + SCD2 columns).
-    :raises Odcs2LhpError: for unmappable column types.
+    :raises Odcs2LhpError: when a column has no ``physicalType``.
     """
     version = contract.get("version")
     artifacts: List[Artifact] = []

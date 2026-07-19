@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+import pytest
+
+from odcs2lhp.errors import Odcs2LhpError
 from odcs2lhp.mapper import quote_identifier, sanitize_name
 from odcs2lhp.translator import translate_contract
 
@@ -47,81 +50,16 @@ def test_type_mapping_uses_physical_type_verbatim_when_present():
     assert cols["c"]["type"] == "DECIMAL(9,3)"
 
 
-def test_type_mapping_maps_integer_i32_to_int():
-    cols = _write_columns(
-        [{"name": "c", "logicalType": "integer", "logicalTypeOptions": {"format": "i32"}}]
-    )
+def test_type_mapping_raises_when_physical_type_missing():
+    contract = {
+        "version": "1.0",
+        "schema": [{"name": "t", "properties": [{"name": "c", "logicalType": "integer"}]}],
+    }
 
-    assert cols["c"]["type"] == "INT"
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        translate_contract(contract, stem="c")
 
-
-def test_type_mapping_maps_integer_to_bigint_by_default():
-    cols = _write_columns([{"name": "c", "logicalType": "integer"}])
-
-    assert cols["c"]["type"] == "BIGINT"
-
-
-def test_type_mapping_maps_number_with_precision_and_scale_to_decimal():
-    cols = _write_columns(
-        [
-            {
-                "name": "c",
-                "logicalType": "number",
-                "logicalTypeOptions": {"precision": 18, "scale": 2},
-            }
-        ]
-    )
-
-    assert cols["c"]["type"] == "DECIMAL(18,2)"
-
-
-def test_type_mapping_maps_number_f32_to_float():
-    cols = _write_columns(
-        [{"name": "c", "logicalType": "number", "logicalTypeOptions": {"format": "f32"}}]
-    )
-
-    assert cols["c"]["type"] == "FLOAT"
-
-
-def test_type_mapping_maps_number_to_double_by_default():
-    cols = _write_columns([{"name": "c", "logicalType": "number"}])
-
-    assert cols["c"]["type"] == "DOUBLE"
-
-
-def test_type_mapping_maps_object_to_struct_recursively():
-    cols = _write_columns(
-        [
-            {
-                "name": "addr",
-                "logicalType": "object",
-                "properties": [
-                    {"name": "street", "logicalType": "string"},
-                    {"name": "zip", "logicalType": "integer"},
-                ],
-            }
-        ]
-    )
-
-    assert cols["addr"]["type"] == "STRUCT<street:STRING,zip:BIGINT>"
-
-
-def test_type_mapping_maps_simple_logical_types():
-    cols = _write_columns(
-        [
-            {"name": "s", "logicalType": "string"},
-            {"name": "b", "logicalType": "boolean"},
-            {"name": "d", "logicalType": "date"},
-            {"name": "ts", "logicalType": "timestamp"},
-            {"name": "t", "logicalType": "time"},
-        ]
-    )
-
-    assert cols["s"]["type"] == "STRING"
-    assert cols["b"]["type"] == "BOOLEAN"
-    assert cols["d"]["type"] == "DATE"
-    assert cols["ts"]["type"] == "TIMESTAMP"
-    assert cols["t"]["type"] == "STRING"
+    assert exc_info.value.code == "ODCS-TYPE-001"
 
 
 def test_constraints_derive_numeric_min_and_max():
@@ -130,6 +68,7 @@ def test_constraints_derive_numeric_min_and_max():
             {
                 "name": "n",
                 "logicalType": "integer",
+                "physicalType": "BIGINT",
                 "logicalTypeOptions": {"minimum": 1, "maximum": 10},
             }
         ]
@@ -145,6 +84,7 @@ def test_constraints_derive_numeric_exclusive_bounds():
             {
                 "name": "n",
                 "logicalType": "number",
+                "physicalType": "DOUBLE",
                 "logicalTypeOptions": {"exclusiveMinimum": 0, "exclusiveMaximum": 100},
             }
         ]
@@ -160,6 +100,7 @@ def test_constraints_derive_date_bounds_as_quoted_literals():
             {
                 "name": "d",
                 "logicalType": "date",
+                "physicalType": "DATE",
                 "logicalTypeOptions": {
                     "minimum": "2020-01-01",
                     "maximum": "2030-12-31",
@@ -178,6 +119,7 @@ def test_constraints_derive_timestamp_exclusive_bounds():
             {
                 "name": "ts",
                 "logicalType": "timestamp",
+                "physicalType": "TIMESTAMP",
                 "logicalTypeOptions": {
                     "exclusiveMinimum": "2020-01-01T00:00:00",
                     "exclusiveMaximum": "2030-01-01T00:00:00",
@@ -211,6 +153,7 @@ def test_constraints_guard_object_required_fields():
             {
                 "name": "o",
                 "logicalType": "object",
+                "physicalType": "STRUCT<street:STRING>",
                 "logicalTypeOptions": {"required": ["street"]},
             }
         ]
@@ -225,6 +168,7 @@ def test_constraints_render_float_multiple_of_without_trailing_zero():
             {
                 "name": "n",
                 "logicalType": "number",
+                "physicalType": "DOUBLE",
                 "logicalTypeOptions": {"multipleOf": 1.0},
             }
         ]
@@ -254,6 +198,7 @@ def test_constraints_backtick_quote_column_name_in_condition():
             {
                 "name": "cust id",
                 "logicalType": "string",
+                "physicalType": "STRING",
                 "logicalTypeOptions": {"minLength": 3},
             }
         ]
@@ -268,6 +213,7 @@ def test_constraints_escape_embedded_backtick_in_column_name():
             {
                 "name": "a`b",
                 "logicalType": "string",
+                "physicalType": "STRING",
                 "logicalTypeOptions": {"pattern": "x"},
             }
         ]
@@ -282,6 +228,7 @@ def test_constraints_quote_both_object_and_field_names():
             {
                 "name": "o",
                 "logicalType": "object",
+                "physicalType": "STRUCT<street name:STRING>",
                 "logicalTypeOptions": {"required": ["street name"]},
             }
         ]

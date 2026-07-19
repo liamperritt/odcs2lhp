@@ -2,7 +2,9 @@
 
 These functions operate on plain ODCS dicts and return strings / dicts / tuples:
 
-- :func:`odcs_type_to_spark` -> a Spark/Databricks DDL type string.
+- :func:`odcs_type_to_spark` -> a Spark/Databricks DDL type string (the
+  property's ``physicalType`` verbatim; logicalType inference is not yet
+  implemented).
 - :func:`odcs_tags_to_uc` -> a Unity Catalog tag mapping from an ODCS ``tags``
   array (present on both schema objects and properties).
 - :func:`odcs_property_to_constraints` -> row-level ``(predicate, name)`` pairs
@@ -46,83 +48,34 @@ def sanitize_name(name: str) -> str:
 # Type mapping  (ODCS property -> Spark DDL type)
 # ---------------------------------------------------------------------------
 
-# Simple ODCS logical types -> Spark DDL type strings.
-_SIMPLE_LOGICAL = {
-    "string": "STRING",
-    "boolean": "BOOLEAN",
-    "date": "DATE",
-    "timestamp": "TIMESTAMP",
-    "time": "STRING",
-}
 
-
-def _unmappable(prop: Dict[str, Any]) -> Odcs2LhpError:
-    logical = prop.get("logicalType")
+def _missing_physical_type(prop: Dict[str, Any]) -> Odcs2LhpError:
+    name = prop.get("name")
     return Odcs2LhpError(
         "ODCS-TYPE-001",
         (
-            "Could not map ODCS property to a Spark type. Neither a usable "
-            f"'physicalType' nor a recognised 'logicalType' was found "
-            f"(logicalType={logical!r})."
+            f"ODCS property {name!r} has no 'physicalType'. logicalType-based "
+            "type mapping is not implemented yet; a 'physicalType' is required."
         ),
         suggestions=[
-            "Provide an explicit 'physicalType' (e.g. STRING, BIGINT, DECIMAL(18,2))",
-            "Use a supported logicalType: string, integer, number, boolean, "
-            "date, timestamp, time, object, array",
+            "Provide an explicit 'physicalType' (e.g. STRING, BIGINT, "
+            "DECIMAL(18,2), ARRAY<STRING>)",
         ],
     )
 
 
 def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
-    """Resolve an ODCS schema property to a Spark DDL type string.
+    """Return the property's ``physicalType`` verbatim.
 
-    Resolution order:
+    logicalType-based inference is intentionally not implemented yet; a
+    ``physicalType`` is required until it is.
 
-    1. If ``physicalType`` is present, return it verbatim.
-    2. Otherwise map ODCS ``logicalType`` (honouring ``logicalTypeOptions``):
-       ``string``->``STRING``, ``integer``->``BIGINT`` (``i32``->``INT``),
-       ``number``->``DOUBLE`` (``f32``->``FLOAT``; precision/scale ->
-       ``DECIMAL(p,s)``), ``boolean``->``BOOLEAN``, ``date``->``DATE``,
-       ``timestamp``->``TIMESTAMP``, ``time``->``STRING``, ``object``->
-       ``STRUCT<...>``, ``array``->``ARRAY<itemType>``.
-
-    :raises Odcs2LhpError: when the type is unmappable.
+    :raises Odcs2LhpError: when ``physicalType`` is absent.
     """
     physical = prop.get("physicalType")
     if physical:
         return physical
-
-    logical = prop.get("logicalType")
-    options = prop.get("logicalTypeOptions") or {}
-
-    if logical in _SIMPLE_LOGICAL:
-        return _SIMPLE_LOGICAL[logical]
-
-    if logical == "integer":
-        if options.get("format") == "i32":
-            return "INT"
-        return "BIGINT"
-
-    if logical == "number":
-        precision = options.get("precision")
-        scale = options.get("scale")
-        if isinstance(precision, (int, float)) and isinstance(scale, (int, float)):
-            return f"DECIMAL({precision},{scale})"
-        if options.get("format") == "f32":
-            return "FLOAT"
-        return "DOUBLE"
-
-    if logical == "object":
-        fields = []
-        for sub in prop.get("properties", []) or []:
-            fields.append(f"{sub['name']}:{odcs_type_to_spark(sub)}")
-        return f"STRUCT<{','.join(fields)}>"
-
-    if logical == "array":
-        item_type = odcs_type_to_spark(prop["items"])
-        return f"ARRAY<{item_type}>"
-
-    raise _unmappable(prop)
+    raise _missing_physical_type(prop)
 
 
 # ---------------------------------------------------------------------------

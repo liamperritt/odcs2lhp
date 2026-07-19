@@ -214,7 +214,12 @@ def test_expectations_backtick_quote_required_column_when_name_has_special_chars
             {
                 "name": "t",
                 "properties": [
-                    {"name": "cust id", "logicalType": "string", "required": True}
+                    {
+                        "name": "cust id",
+                        "logicalType": "string",
+                        "physicalType": "STRING",
+                        "required": True,
+                    }
                 ],
             }
         ],
@@ -280,11 +285,11 @@ def test_expectations_use_wrapped_shape_with_version_and_table(sales):
 # --- errors -----------------------------------------------------------------
 
 
-def test_translate_contract_raises_when_column_type_unmappable():
+def test_translate_contract_raises_when_physical_type_missing():
     contract = {
         "version": "1.0",
         "schema": [
-            {"name": "t", "properties": [{"name": "c", "logicalType": "mystery"}]}
+            {"name": "t", "properties": [{"name": "c", "logicalType": "string"}]}
         ],
     }
 
