@@ -51,7 +51,7 @@ The contract version lives in the file content, not the path.
 | Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `schema_file` on a `transform_type: schema` action |
 | Expectations | `<prefix>/transform/expectations/<obj>_expectations.yaml` | `expectations_file` on a `transform_type: data_quality` action |
 | Write schema | `<prefix>/write/schemas/<obj>_schema.yaml` | `write_target.table_schema` on a write action |
-| Table tags | `<prefix>/write/tags/<obj>_tags.yaml` | *(table-level tags — planned LHP support)* |
+| UC tags | `<prefix>/write/uc_tags/<obj>_tags.yaml` | *(table-level + per-column UC tags)* |
 
 For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
 
@@ -66,8 +66,11 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
 - **Expectations** combine `required: true` -> `<col> IS NOT NULL` with each
   property's `logicalTypeOptions` predicates. `failureAction` is `fail` for a
   `criticalDataElement` property, else `warn`.
-- **Column** UC tags ride on the write schema; **table** UC tags go in the tags
-  file. Tag strings use the `key:value` convention (colon-less -> key-only tag).
+- **UC tags** all live in the `write/uc_tags/<obj>_tags.yaml` file: table-level tags
+  under `tags`, and per-column tags under `columns` (one `{name, tags}` entry per
+  column, `tags: {}` when none). Contract-level tags form the base applied to every
+  table, and an object-level tag of the same key overrides the contract value. Tag
+  strings use the `key:value` convention (colon-less -> key-only tag).
 
 ## Example pipeline references
 

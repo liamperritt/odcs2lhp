@@ -3,7 +3,8 @@
 Drives the real ``translate`` CLI over a committed example LHP project
 (``test_project/``) containing several valid ODCS contracts of differing shapes,
 and compares the full generated ``.lhp/odcs/`` tree against committed golden
-files under ``expected/``.
+files under ``expected/`` — both as parsed YAML (clear structural diffs) and as
+raw bytes (catches key-ordering/formatting regressions).
 
 This replaces ad-hoc manual verification: after an intentional behaviour change,
 regenerate the goldens with ``ODCS2LHP_REGEN=1`` and review the git diff::
@@ -95,9 +96,16 @@ def test_translate_matches_golden_snapshot(tmp_path):
     # Same set of sidecar files (catches added/removed/renamed outputs).
     assert set(generated) == set(expected)
 
-    # Same content, compared as parsed YAML so formatting noise never fails us.
     for rel, exp_path in expected.items():
+        # First compare parsed YAML: a structural/value change gives a clear diff.
         assert _load_yaml(generated[rel]) == _load_yaml(exp_path), rel
+        # Then compare raw bytes: catches key-ordering/formatting regressions
+        # (the writer emits with sort_keys=False to preserve authored order),
+        # which parsed-YAML equality alone would miss.
+        assert (
+            generated[rel].read_text(encoding="utf-8")
+            == exp_path.read_text(encoding="utf-8")
+        ), rel
 
 
 def test_translate_produces_one_output_tree_per_contract(tmp_path):
