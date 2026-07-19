@@ -38,7 +38,7 @@ def test_e2e_translate_sales_contract_produces_expected_sidecars(tmp_path, fixtu
     result = _translate(tmp_path)
 
     assert result.exit_code == 0
-    base = tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0"
+    base = tmp_path / ".lhp" / "odcs" / "sales.contract"
 
     load = load_yaml(base / "load" / "schemas" / "customer_schema.yaml")
     load_names = {c["name"] for c in load["columns"]}
@@ -71,7 +71,7 @@ def test_e2e_translate_multi_object_contract_writes_all_objects(tmp_path, fixtur
     result = _translate(tmp_path)
 
     assert result.exit_code == 0
-    base = tmp_path / ".lhp" / "odcs" / "multi" / "2.0"
+    base = tmp_path / ".lhp" / "odcs" / "multi.odcs"
     files = sorted(p.relative_to(base).as_posix() for p in base.rglob("*.yaml"))
     assert files == [
         "load/schemas/orders_schema.yaml",
@@ -167,4 +167,21 @@ def test_e2e_translate_preserves_prior_output_when_a_contract_fails(tmp_path, fi
     # contract parses/translates, the prior output survives untouched.
     assert result.exit_code != 0
     assert prior.exists()
-    assert not list((tmp_path / ".lhp" / "odcs" / "sales").rglob("*.yaml"))
+
+
+def test_e2e_translate_raises_when_two_contracts_share_basename(tmp_path, fixtures_dir):
+    (tmp_path / "lhp.yaml").write_text("name: p\n", encoding="utf-8")
+    contracts_dir = tmp_path / "contracts"
+    contracts_dir.mkdir()
+    # Same basename, differing only by extension -> identical output prefix "sales".
+    shutil.copy(fixtures_dir / "sales.contract.yaml", contracts_dir / "sales.yaml")
+    shutil.copy(fixtures_dir / "sales.contract.yaml", contracts_dir / "sales.yml")
+    prior = tmp_path / ".lhp" / "odcs" / "prior.yaml"
+    prior.parent.mkdir(parents=True)
+    prior.write_text("keep: me\n", encoding="utf-8")
+
+    result = _translate(tmp_path)
+
+    assert result.exit_code != 0
+    assert prior.exists()  # wipe never runs; prior output survives
+    assert not (tmp_path / ".lhp" / "odcs" / "sales").exists()

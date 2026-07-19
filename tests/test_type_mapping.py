@@ -22,9 +22,9 @@ def _write_columns(properties: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]
         "version": "1.0",
         "schema": [{"name": "t", "properties": properties}],
     }
-    artifacts = translate_contract(contract, stem="c")
+    artifacts = translate_contract(contract, prefix="c")
     write = next(
-        a.data for a in artifacts if a.relative_path == "c/1.0/write/schemas/t_schema.yaml"
+        a.data for a in artifacts if a.relative_path == "c/write/schemas/t_schema.yaml"
     )
     return {c["name"]: c for c in write["columns"]}
 
@@ -35,11 +35,11 @@ def _expectations(properties: List[Dict[str, Any]]) -> Dict[str, str]:
         "version": "1.0",
         "schema": [{"name": "t", "properties": properties}],
     }
-    artifacts = translate_contract(contract, stem="c")
+    artifacts = translate_contract(contract, prefix="c")
     exp = next(
         a.data
         for a in artifacts
-        if a.relative_path == "c/1.0/transform/expectations/t_expectations.yaml"
+        if a.relative_path == "c/transform/expectations/t_expectations.yaml"
     )
     return {e["name"]: e["expression"] for e in exp["expectations"]}
 
@@ -57,7 +57,7 @@ def test_type_mapping_raises_when_physical_type_missing():
     }
 
     with pytest.raises(Odcs2LhpError) as exc_info:
-        translate_contract(contract, stem="c")
+        translate_contract(contract, prefix="c")
 
     assert exc_info.value.code == "ODCS-TYPE-001"
 
@@ -220,6 +220,21 @@ def test_constraints_escape_embedded_backtick_in_column_name():
     )
 
     assert exprs["a_b_pattern"] == "`a``b` RLIKE 'x'"
+
+
+def test_constraints_escape_single_quote_in_date_bound():
+    exprs = _expectations(
+        [
+            {
+                "name": "d",
+                "logicalType": "date",
+                "physicalType": "DATE",
+                "logicalTypeOptions": {"minimum": "2020' OR '1'='1"},
+            }
+        ]
+    )
+
+    assert exprs["d_min"] == "`d` >= '2020'' OR ''1''=''1'"
 
 
 def test_constraints_escape_backslash_in_pattern():

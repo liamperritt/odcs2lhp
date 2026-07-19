@@ -29,7 +29,7 @@ def test_cli_defaults_contracts_dir_to_contracts_when_arg_omitted(tmp_path, fixt
     result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
-    assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
+    assert (tmp_path / ".lhp" / "odcs" / "sales.contract" / "load" / "schemas").is_dir()
 
 
 def test_cli_writes_all_five_artifact_kinds_under_dot_lhp_odcs(tmp_path, fixtures_dir):
@@ -39,11 +39,11 @@ def test_cli_writes_all_five_artifact_kinds_under_dot_lhp_odcs(tmp_path, fixture
 
     assert result.exit_code == 0
     odcs = tmp_path / ".lhp" / "odcs"
-    assert (odcs / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml").is_file()
-    assert (odcs / "sales" / "1.0.0" / "transform" / "schemas" / "customer_transform.yaml").is_file()
-    assert (odcs / "sales" / "1.0.0" / "write" / "schemas" / "customer_schema.yaml").is_file()
-    assert (odcs / "sales" / "1.0.0" / "write" / "tags" / "customer_tags.yaml").is_file()
-    assert (odcs / "sales" / "1.0.0" / "transform" / "expectations" / "customer_expectations.yaml").is_file()
+    assert (odcs / "sales.contract" / "load" / "schemas" / "customer_schema.yaml").is_file()
+    assert (odcs / "sales.contract" / "transform" / "schemas" / "customer_transform.yaml").is_file()
+    assert (odcs / "sales.contract" / "write" / "schemas" / "customer_schema.yaml").is_file()
+    assert (odcs / "sales.contract" / "write" / "tags" / "customer_tags.yaml").is_file()
+    assert (odcs / "sales.contract" / "transform" / "expectations" / "customer_expectations.yaml").is_file()
 
 
 def test_cli_honours_custom_contracts_dir_arg(tmp_path, fixtures_dir):
@@ -54,7 +54,7 @@ def test_cli_honours_custom_contracts_dir_arg(tmp_path, fixtures_dir):
     )
 
     assert result.exit_code == 0
-    assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
+    assert (tmp_path / ".lhp" / "odcs" / "sales.contract" / "load" / "schemas").is_dir()
 
 
 def test_cli_excludes_operational_metadata_when_lhp_yaml_declares_it(
@@ -65,7 +65,7 @@ def test_cli_excludes_operational_metadata_when_lhp_yaml_declares_it(
     CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     load_schema = load_yaml(
-        tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas" / "customer_schema.yaml"
+        tmp_path / ".lhp" / "odcs" / "sales.contract" / "load" / "schemas" / "customer_schema.yaml"
     )
     names = {c["name"] for c in load_schema["columns"]}
     assert "_processing_timestamp" not in names
@@ -113,7 +113,7 @@ def test_cli_produces_one_artifact_set_per_object_when_multi_object(
     result = CliRunner().invoke(cli, ["translate", "--project-root", str(tmp_path)])
 
     assert result.exit_code == 0
-    write_dir = tmp_path / ".lhp" / "odcs" / "multi" / "2.0" / "write" / "schemas"
+    write_dir = tmp_path / ".lhp" / "odcs" / "multi.odcs" / "write" / "schemas"
     assert (write_dir / "orders_schema.yaml").is_file()
     assert (write_dir / "products_schema.yaml").is_file()
 
@@ -139,7 +139,7 @@ def test_cli_discovers_project_root_by_walking_up_when_not_given(
     result = CliRunner().invoke(cli, ["translate"])
 
     assert result.exit_code == 0
-    assert (tmp_path / ".lhp" / "odcs" / "sales" / "1.0.0" / "load" / "schemas").is_dir()
+    assert (tmp_path / ".lhp" / "odcs" / "sales.contract" / "load" / "schemas").is_dir()
 
 
 def test_main_exits_one_when_contract_invalid(tmp_path, fixtures_dir, monkeypatch):

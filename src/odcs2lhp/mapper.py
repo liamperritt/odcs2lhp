@@ -123,6 +123,12 @@ def odcs_tags_to_uc(element: Dict[str, Any]) -> Dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
+def _sql_str_literal(value: Any) -> str:
+    """Render a single-quoted SQL string literal, escaping backslashes then quotes."""
+    escaped = str(value).replace("\\", "\\\\").replace("'", "''")
+    return f"'{escaped}'"
+
+
 def _num(value: Any) -> str:
     """Render a numeric literal without a spurious trailing ``.0``."""
     if isinstance(value, bool):
@@ -171,8 +177,10 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
                 (f"length({qcol}) <= {_num(options['maxLength'])}", f"{scol}_max_length")
             )
         if "pattern" in options:
-            regex = str(options["pattern"]).replace("\\", "\\\\").replace("'", "''")
-            constraints.append((f"{qcol} RLIKE '{regex}'", f"{scol}_pattern"))
+            constraints.append(
+                (f"{qcol} RLIKE {_sql_str_literal(options['pattern'])}",
+                 f"{scol}_pattern")
+            )
 
     elif logical in ("integer", "number"):
         if "minimum" in options:
@@ -194,16 +202,22 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
 
     elif logical in ("date", "timestamp", "time"):
         if "minimum" in options:
-            constraints.append((f"{qcol} >= '{options['minimum']}'", f"{scol}_min"))
+            constraints.append(
+                (f"{qcol} >= {_sql_str_literal(options['minimum'])}", f"{scol}_min")
+            )
         if "maximum" in options:
-            constraints.append((f"{qcol} <= '{options['maximum']}'", f"{scol}_max"))
+            constraints.append(
+                (f"{qcol} <= {_sql_str_literal(options['maximum'])}", f"{scol}_max")
+            )
         if "exclusiveMinimum" in options:
             constraints.append(
-                (f"{qcol} > '{options['exclusiveMinimum']}'", f"{scol}_exclusive_min")
+                (f"{qcol} > {_sql_str_literal(options['exclusiveMinimum'])}",
+                 f"{scol}_exclusive_min")
             )
         if "exclusiveMaximum" in options:
             constraints.append(
-                (f"{qcol} < '{options['exclusiveMaximum']}'", f"{scol}_exclusive_max")
+                (f"{qcol} < {_sql_str_literal(options['exclusiveMaximum'])}",
+                 f"{scol}_exclusive_max")
             )
 
     elif logical == "array":

@@ -1,8 +1,9 @@
 """Translate a parsed ODCS contract into LHP sidecar artifacts.
 
 Each schema object in a contract produces five :class:`Artifact` sidecars,
-laid out under ``<stem>/<version>/<action_type>/<sidecar_type>/`` — grouped by
-the LHP pipeline stage (action) that consumes each one:
+laid out under ``<contract-path-prefix>/<action_type>/<sidecar_type>/`` (the prefix
+mirrors the contract file's location + name, e.g. ``marketing/sales.contract``) —
+grouped by the LHP pipeline stage (action) that consumes each one:
 
 - a **load** schema (cloudFiles read schema; columns named by ``physicalName``),
 - a **transform** schema (``column_mapping`` + ``type_casting`` for a
@@ -23,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, FrozenSet, List, Optional
 
+from .errors import Odcs2LhpError
 from .mapper import (
     odcs_property_to_constraints,
     odcs_tags_to_uc,
@@ -41,7 +43,7 @@ class Artifact:
     """A single sidecar file to write.
 
     :param relative_path: POSIX path relative to the output dir (``.lhp/odcs``),
-        e.g. ``sales/1.0.0/load/schemas/customer_schema.yaml``.
+        e.g. ``marketing/sales.contract/load/schemas/customer_schema.yaml``.
     :param data: the YAML-serializable mapping to write.
     """
 
@@ -49,41 +51,77 @@ class Artifact:
     data: Dict[str, Any]
 
 
+def assert_unique_relative_paths(artifacts: List[Artifact]) -> None:
+    """Raise if two artifacts target the same output path (would silently overwrite).
+
+    Guards against schema objects (within or across contracts) whose sanitized
+    names collide onto one path.
+    """
+    seen: set[str] = set()
+    for artifact in artifacts:
+        if artifact.relative_path in seen:
+            raise Odcs2LhpError(
+                "ODCS-PATH-002",
+                f"Two artifacts map to the same output path "
+                f"{artifact.relative_path!r}; outputs would overwrite each other.",
+                suggestions=[
+                    "Rename the colliding schema object(s), or the contract "
+                    "file(s), so their sanitized names differ.",
+                ],
+            )
+        seen.add(artifact.relative_path)
+
+
 def translate_contract(
     contract: Dict[str, Any],
     *,
-    stem: str,
+    prefix: str,
     exclude: FrozenSet[str] = frozenset(),
 ) -> List[Artifact]:
     """Translate every schema object in ``contract`` into its sidecar artifacts.
 
     :param contract: a parsed (and ODCS-valid) contract dict.
-    :param stem: the source contract filename stem (collision-safe prefix).
+    :param prefix: the output-path prefix for this contract (its location under the
+        contracts dir plus its filename without extension, e.g.
+        ``marketing/sales.contract``); each ``/``-segment is sanitized.
     :param exclude: column names to omit from the load + transform schemas
         (operational-metadata + SCD2 columns).
-    :raises Odcs2LhpError: when a column has no ``physicalType``.
+    :raises Odcs2LhpError: on a duplicate schema-object name (``ODCS-OBJ-001``), an
+        unsafe path segment (``ODCS-PATH-001``), a column without ``physicalType``
+        (``ODCS-TYPE-001``), or colliding artifact paths (``ODCS-PATH-002``).
     """
     version = contract.get("version")
+    base = "/".join(
+        path_segment(part, field="contract path") for part in prefix.split("/")
+    )
     artifacts: List[Artifact] = []
+    seen_objects: set[str] = set()
     for obj in contract.get("schema", []) or []:
+        name = obj["name"]
+        if name in seen_objects:
+            raise Odcs2LhpError(
+                "ODCS-OBJ-001",
+                f"Duplicate schema object name {name!r} in contract; names must "
+                "be unique.",
+                suggestions=["Give each schema object a unique 'name'."],
+            )
+        seen_objects.add(name)
         artifacts.extend(
-            _translate_object(obj, stem=stem, version=version, exclude=exclude)
+            _translate_object(obj, base=base, version=version, exclude=exclude)
         )
+    assert_unique_relative_paths(artifacts)
     return artifacts
 
 
 def _translate_object(
     obj: Dict[str, Any],
     *,
-    stem: str,
+    base: str,
     version: Optional[str],
     exclude: FrozenSet[str],
 ) -> List[Artifact]:
     object_name = obj["name"]
     properties = obj.get("properties", []) or []
-    stem_seg = path_segment(stem, field="contract stem")
-    version_seg = path_segment(version or "unversioned", field="version")
-    base = f"{stem_seg}/{version_seg}"
     name = slug(object_name)
 
     return [
@@ -189,7 +227,9 @@ def _write_schema(
         column: Dict[str, Any] = {
             "name": prop["name"],
             "type": odcs_type_to_spark(prop),
-            "nullable": not prop.get("required", False),
+            "nullable": not (
+                prop.get("required", False) or prop.get("primaryKey") is True
+            ),
         }
         if "description" in prop:
             column["comment"] = prop["description"]

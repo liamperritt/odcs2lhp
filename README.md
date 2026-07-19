@@ -38,17 +38,22 @@ odcs2lhp translate && lhp validate --env dev && lhp generate --env dev
 
 ## What it writes
 
-For every schema object in every discovered contract (stem = filename up to the
-first dot, e.g. `sales.contract.yaml` -> `sales`), five sidecars are written
-under `.lhp/odcs/` (which LHP already gitignores):
+For every schema object in every discovered contract, five sidecars are written
+under `.lhp/odcs/` (which LHP already gitignores). The path mirrors the contract
+file's location under the contracts dir plus its filename without extension —
+`<prefix>` — so each contract's output tree is unique (e.g.
+`contracts/marketing/sales.contract.yaml` -> prefix `marketing/sales.contract`).
+The contract version lives in the file content, not the path.
 
 | Sidecar | Path | Referenced from a pipeline action via |
 |---|---|---|
-| Load schema | `schemas/load/<stem>__<obj>_schema.yaml` | `source.schema` / `cloudFiles.schemaHints` on a cloudFiles load |
-| Transform schema | `schemas/transform/<stem>__<obj>_schema.yaml` | `schema_file` on a `transform_type: schema` action |
-| Write schema | `schemas/write/<stem>__<obj>_schema.yaml` | `write_target.table_schema` on a write action |
-| Table tags | `tags/<stem>__<obj>_tags.yaml` | *(table-level tags — planned LHP support)* |
-| Expectations | `expectations/<stem>__<obj>_expectations.yaml` | `expectations_file` on a `transform_type: data_quality` action |
+| Load schema | `<prefix>/load/schemas/<obj>_schema.yaml` | `source.schema` / `cloudFiles.schemaHints` on a cloudFiles load |
+| Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `schema_file` on a `transform_type: schema` action |
+| Expectations | `<prefix>/transform/expectations/<obj>_expectations.yaml` | `expectations_file` on a `transform_type: data_quality` action |
+| Write schema | `<prefix>/write/schemas/<obj>_schema.yaml` | `write_target.table_schema` on a write action |
+| Table tags | `<prefix>/write/tags/<obj>_tags.yaml` | *(table-level tags — planned LHP support)* |
+
+For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
 
 ### Details
 

@@ -16,14 +16,14 @@ import click
 
 from . import __version__
 from .discovery import (
-    contract_stem,
+    contract_output_prefix,
     discover_contracts,
     exclusion_columns,
     find_project_root,
 )
 from .errors import Odcs2LhpError
 from .parser import OdcsParser
-from .translator import translate_contract
+from .translator import assert_unique_relative_paths, translate_contract
 from .writer import DEFAULT_OUTPUT_SUBDIR, reset_output_dir, write_artifacts
 
 
@@ -89,10 +89,15 @@ def translate(
         contract = parser.parse(contract_file)
         artifacts = translate_contract(
             contract,
-            stem=contract_stem(contract_file),
+            prefix=contract_output_prefix(contract_file, contracts_path),
             exclude=exclude,
         )
         translated.append((contract_file, artifacts))
+
+    # Guard against cross-contract path collisions (e.g. two files sharing a stem)
+    # before touching the output directory.
+    all_artifacts = [a for _, arts in translated for a in arts]
+    assert_unique_relative_paths(all_artifacts)
 
     # Everything parsed and translated cleanly: wipe, then write fresh.
     reset_output_dir(output_dir)
