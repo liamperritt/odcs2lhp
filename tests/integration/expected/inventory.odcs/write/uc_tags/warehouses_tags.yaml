@@ -1,0 +1,9 @@
+version: '1.0'
+table: warehouses
+tags:
+  domain: inventory
+columns:
+- name: warehouse_id
+  tags: {}
+- name: opened_on
+  tags: {}

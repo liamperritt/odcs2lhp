@@ -1,0 +1,4 @@
+type_casting:
+  sku: STRING
+  unit_price: DECIMAL(18,2)
+  dimensions: STRUCT<length:DOUBLE,width:DOUBLE>

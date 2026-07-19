@@ -1,0 +1,24 @@
+version: '1.0'
+table: products
+expectations:
+- name: sku_not_null
+  expression: '`sku` IS NOT NULL'
+  failureAction: warn
+- name: sku_pattern
+  expression: '`sku` RLIKE ''^[A-Z0-9-]+$'''
+  failureAction: warn
+- name: unit_price_not_null
+  expression: '`unit_price` IS NOT NULL'
+  failureAction: warn
+- name: unit_price_min
+  expression: '`unit_price` >= 0'
+  failureAction: warn
+- name: unit_price_max
+  expression: '`unit_price` <= 1000000'
+  failureAction: warn
+- name: dimensions_length_not_null
+  expression: '`dimensions` IS NULL OR (`dimensions`.`length` IS NOT NULL)'
+  failureAction: warn
+- name: dimensions_width_not_null
+  expression: '`dimensions` IS NULL OR (`dimensions`.`width` IS NOT NULL)'
+  failureAction: warn

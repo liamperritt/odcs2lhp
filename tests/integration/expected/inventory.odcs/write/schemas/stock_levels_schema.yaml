@@ -1,0 +1,16 @@
+name: stock_levels
+version: 2.1.0
+description: Per-SKU stock snapshots
+columns:
+- name: sku
+  type: STRING
+  nullable: false
+  comment: Stock-keeping unit
+- name: quantity
+  type: INT
+  nullable: false
+  comment: Units on hand
+- name: snapshot_at
+  type: TIMESTAMP
+  nullable: false
+  comment: Snapshot timestamp

@@ -1,0 +1,38 @@
+version: "1.0.0"
+apiVersion: v3.0.2
+kind: DataContract
+id: 33333333-3333-3333-3333-333333333333
+status: active
+name: campaign-contract
+tags:
+  - "domain:marketing"
+  - "layer:bronze"
+schema:
+  - name: campaign
+    physicalType: table
+    description: Marketing campaigns
+    properties:
+      - name: campaign_id
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Campaign identifier
+      - name: campaign_name
+        physicalName: name
+        logicalType: string
+        physicalType: STRING
+        required: true
+        description: Human-readable campaign name
+        tags:
+          - "pii:false"
+        logicalTypeOptions:
+          minLength: 1
+          maxLength: 200
+      - name: budget
+        logicalType: number
+        physicalType: DECIMAL(12,2)
+        description: Campaign budget
+        logicalTypeOptions:
+          exclusiveMinimum: 0

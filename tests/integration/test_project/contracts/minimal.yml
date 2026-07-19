@@ -1,0 +1,12 @@
+version: "0.1.0"
+apiVersion: v3.0.2
+kind: DataContract
+id: 44444444-4444-4444-4444-444444444444
+status: active
+name: minimal-contract
+schema:
+  - name: ping
+    physicalType: table
+    properties:
+      - name: id
+        physicalType: BIGINT

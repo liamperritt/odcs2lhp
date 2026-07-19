@@ -1,0 +1,12 @@
+version: '1.0'
+table: warehouses
+expectations:
+- name: warehouse_id_not_null
+  expression: '`warehouse_id` IS NOT NULL'
+  failureAction: warn
+- name: opened_on_min
+  expression: '`opened_on` >= ''2000-01-01'''
+  failureAction: warn
+- name: opened_on_max
+  expression: '`opened_on` <= ''2030-12-31'''
+  failureAction: warn

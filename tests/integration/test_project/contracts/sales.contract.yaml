@@ -1,0 +1,80 @@
+version: "1.0.0"
+apiVersion: v3.0.2
+kind: DataContract
+id: 11111111-1111-1111-1111-111111111111
+status: active
+name: sales-contract
+tags:
+  - "layer:bronze"
+  - "domain:sales"
+schema:
+  - name: customer
+    physicalType: table
+    description: Customer master
+    tags:
+      - "layer:silver"
+      - "owner:crm"
+      - pii
+    properties:
+      - name: customer_id
+        physicalName: cust id
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        criticalDataElement: true
+        primaryKey: true
+        primaryKeyPosition: 2
+        description: Surrogate customer key
+        tags:
+          - "semantic:identifier"
+        logicalTypeOptions:
+          minimum: 1
+      - name: tenant_id
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Tenant partition key
+      - name: email
+        logicalType: string
+        physicalType: STRING
+        description: Customer email
+        tags:
+          - "pii:email"
+          - sensitive
+        logicalTypeOptions:
+          minLength: 3
+          maxLength: 320
+          pattern: "^[^@]+@[^@]+\\.[^@]+$"
+      - name: signup_count
+        logicalType: integer
+        physicalType: INT
+        description: Number of signups
+        logicalTypeOptions:
+          exclusiveMinimum: 0
+          multipleOf: 1
+      - name: labels
+        logicalType: array
+        physicalType: ARRAY<STRING>
+        description: Free-form labels
+        logicalTypeOptions:
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+      - name: _processing_timestamp
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+        description: LHP processing timestamp (operational metadata)
+      - name: _source_file
+        logicalType: string
+        physicalType: STRING
+        description: Source file path (operational metadata)
+      - name: __START_AT
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+        description: SCD2 effective-from (LHP-injected)
+      - name: __END_AT
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+        description: SCD2 effective-to (LHP-injected)

@@ -1,0 +1,16 @@
+name: campaign
+version: 1.0.0
+description: Marketing campaigns
+columns:
+- name: campaign_id
+  type: BIGINT
+  nullable: false
+  comment: Campaign identifier
+- name: name
+  type: STRING
+  nullable: false
+  comment: Human-readable campaign name
+- name: budget
+  type: DECIMAL(12,2)
+  nullable: true
+  comment: Campaign budget

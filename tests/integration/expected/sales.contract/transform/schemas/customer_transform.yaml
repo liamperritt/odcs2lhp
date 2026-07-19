@@ -1,0 +1,8 @@
+column_mapping:
+  cust id: customer_id
+type_casting:
+  customer_id: BIGINT
+  tenant_id: BIGINT
+  email: STRING
+  signup_count: INT
+  labels: ARRAY<STRING>
