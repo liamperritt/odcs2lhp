@@ -52,7 +52,7 @@ def test_translate_contract_emits_five_artifacts_per_object(sales):
         "sales/transform/expectations/customer_expectations.yaml",
         "sales/transform/schemas/customer_transform.yaml",
         "sales/write/schemas/customer_schema.yaml",
-        "sales/write/tags/customer_tags.yaml",
+        "sales/write/uc_tags/customer_tags.yaml",
     ]
 
 
@@ -173,16 +173,11 @@ def test_write_schema_uses_contract_names_not_physical_names(sales):
     assert not any(c["name"] == "cust id" for c in schema["columns"])
 
 
-def test_write_schema_attaches_column_tags_when_property_declares_them(sales):
+def test_write_schema_omits_column_tags_now_carried_by_tags_file(sales):
     schema = _artifact(sales, "sales/write/schemas/customer_schema.yaml")
 
-    assert _column(schema, "email")["tags"] == {"pii": "email", "sensitive": ""}
-
-
-def test_write_schema_omits_tags_key_when_property_has_no_tags(sales):
-    schema = _artifact(sales, "sales/write/schemas/customer_schema.yaml")
-
-    assert "tags" not in _column(schema, "signup_count")
+    # Column-level tags moved to the uc_tags file; no column carries a tags key.
+    assert all("tags" not in column for column in schema["columns"])
 
 
 def test_write_schema_orders_primary_key_by_position(sales):
@@ -217,21 +212,90 @@ def test_write_schema_marks_primary_key_column_not_nullable_even_without_require
 
 
 def test_tags_file_maps_object_tags_with_key_value_convention(sales):
-    tags = _artifact(sales, "sales/write/tags/customer_tags.yaml")
+    tags = _artifact(sales, "sales/write/uc_tags/customer_tags.yaml")
 
-    assert tags == {
-        "version": "1.0",
-        "table": "customer",
-        "tags": {"domain": "sales", "layer": "bronze", "pii": ""},
-    }
+    assert tags["version"] == "1.0"
+    assert tags["table"] == "customer"
+    assert tags["tags"] == {"domain": "sales", "layer": "bronze", "pii": ""}
+
+
+def test_tags_file_lists_every_column_with_its_tags(sales):
+    tags = _artifact(sales, "sales/write/uc_tags/customer_tags.yaml")
+
+    by_name = {c["name"]: c["tags"] for c in tags["columns"]}
+    # One entry per column (incl. operational-metadata + SCD2), in declaration order.
+    assert [c["name"] for c in tags["columns"]] == [
+        "customer_id",
+        "tenant_id",
+        "email",
+        "signup_count",
+        "labels",
+        "_processing_timestamp",
+        "__START_AT",
+        "__END_AT",
+    ]
+    assert by_name["customer_id"] == {"semantic": "identifier"}
+    assert by_name["email"] == {"pii": "email", "sensitive": ""}
+
+
+def test_tags_file_column_has_empty_tags_when_property_declares_none(sales):
+    tags = _artifact(sales, "sales/write/uc_tags/customer_tags.yaml")
+
+    by_name = {c["name"]: c["tags"] for c in tags["columns"]}
+    assert by_name["tenant_id"] == {}
 
 
 def test_tags_file_has_empty_tags_when_object_declares_none(multi_contract_path):
     contract = OdcsParser().parse(multi_contract_path)
     artifacts = translate_contract(contract, prefix="multi")
 
-    tags = _artifact(artifacts, "multi/write/tags/orders_tags.yaml")
+    tags = _artifact(artifacts, "multi/write/uc_tags/orders_tags.yaml")
 
+    assert tags["tags"] == {}
+
+
+def test_tags_file_applies_contract_tags_as_base_when_object_has_none():
+    contract = {
+        "version": "1.0",
+        "tags": ["layer:bronze", "domain:sales"],
+        "schema": [{"name": "customer", "properties": [{"name": "c", "physicalType": "STRING"}]}],
+    }
+
+    artifacts = translate_contract(contract, prefix="c")
+
+    tags = _artifact(artifacts, "c/write/uc_tags/customer_tags.yaml")
+    assert tags["tags"] == {"layer": "bronze", "domain": "sales"}
+
+
+def test_tags_file_object_tag_overrides_contract_tag_when_keys_collide():
+    contract = {
+        "version": "1.0",
+        "tags": ["layer:bronze", "domain:sales"],
+        "schema": [
+            {
+                "name": "customer",
+                "tags": ["layer:silver", "pii"],
+                "properties": [{"name": "c", "physicalType": "STRING"}],
+            }
+        ],
+    }
+
+    artifacts = translate_contract(contract, prefix="c")
+
+    tags = _artifact(artifacts, "c/write/uc_tags/customer_tags.yaml")
+    # Object 'layer' wins; contract 'domain' inherited; object-only 'pii' present.
+    assert tags["tags"] == {"layer": "silver", "domain": "sales", "pii": ""}
+
+
+def test_tags_file_is_empty_when_neither_contract_nor_object_declares_tags():
+    contract = {
+        "version": "1.0",
+        "schema": [{"name": "customer", "properties": [{"name": "c", "physicalType": "STRING"}]}],
+    }
+
+    artifacts = translate_contract(contract, prefix="c")
+
+    tags = _artifact(artifacts, "c/write/uc_tags/customer_tags.yaml")
     assert tags["tags"] == {}
 
 

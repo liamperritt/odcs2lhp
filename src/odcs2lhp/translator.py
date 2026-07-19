@@ -11,8 +11,11 @@ grouped by the LHP pipeline stage (action) that consumes each one:
 - an **expectations** file, applied in the transform stage
   (``logicalTypeOptions`` predicates plus a NOT NULL check per ``required``
   property),
-- a **write** schema (table_schema carrying per-column UC ``tags``),
-- a **tags** file, applied in the write stage (table-level UC tags).
+- a **write** schema (table_schema; columns carry no UC tags),
+- a **uc_tags** file, applied in the write stage, carrying both table-level UC tags
+  (contract-level tags form the base for every table, with an object-level tag of the
+  same key overriding the contract value) and a per-column ``columns`` list of
+  ``{name, tags}`` entries.
 
 Load and transform schemas exclude the operational-metadata and SCD2 columns
 (``exclude``): those are not sourced from the input data. The write schema
@@ -91,6 +94,9 @@ def translate_contract(
         (``ODCS-TYPE-001``), or colliding artifact paths (``ODCS-PATH-002``).
     """
     version = contract.get("version")
+    # Contract-level tags are the base for every table's tags file; an
+    # object-level tag of the same key overrides the contract value.
+    contract_tags = odcs_tags_to_uc(contract)
     base = "/".join(
         path_segment(part, field="contract path") for part in prefix.split("/")
     )
@@ -107,7 +113,13 @@ def translate_contract(
             )
         seen_objects.add(name)
         artifacts.extend(
-            _translate_object(obj, base=base, version=version, exclude=exclude)
+            _translate_object(
+                obj,
+                base=base,
+                version=version,
+                exclude=exclude,
+                contract_tags=contract_tags,
+            )
         )
     assert_unique_relative_paths(artifacts)
     return artifacts
@@ -119,6 +131,7 @@ def _translate_object(
     base: str,
     version: Optional[str],
     exclude: FrozenSet[str],
+    contract_tags: Dict[str, str],
 ) -> List[Artifact]:
     object_name = obj["name"]
     properties = obj.get("properties", []) or []
@@ -142,8 +155,8 @@ def _translate_object(
             _write_schema(obj, object_name, version, properties),
         ),
         Artifact(
-            f"{base}/write/tags/{name}_tags.yaml",
-            _tags_file(obj, object_name),
+            f"{base}/write/uc_tags/{name}_tags.yaml",
+            _tags_file(obj, object_name, contract_tags, properties),
         ),
     ]
 
@@ -215,12 +228,12 @@ def _write_schema(
     version: Optional[str],
     properties: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Table schema for a write ``table_schema``: all columns, logical names, tags.
+    """Table schema for a write ``table_schema``: all columns, logical names.
 
     Data has already been renamed/cast by the transform, so columns use their
-    contract (logical) names. Per-column UC tags ride along (only when non-empty)
-    and reach the UC tagging hook. ``primary_key`` is ordered by
-    ``primaryKeyPosition``.
+    contract (logical) names. UC tags no longer ride on the schema columns — they
+    live in the ``uc_tags`` file (see :func:`_tags_file`). ``primary_key`` is
+    ordered by ``primaryKeyPosition``.
     """
     columns: List[Dict[str, Any]] = []
     for prop in properties:
@@ -233,9 +246,6 @@ def _write_schema(
         }
         if "description" in prop:
             column["comment"] = prop["description"]
-        tags = odcs_tags_to_uc(prop)
-        if tags:
-            column["tags"] = tags
         columns.append(column)
 
     schema: Dict[str, Any] = {"name": object_name, "version": version}
@@ -251,12 +261,28 @@ def _write_schema(
     return schema
 
 
-def _tags_file(obj: Dict[str, Any], object_name: str) -> Dict[str, Any]:
-    """Table-level UC tags file. Always written; ``tags: {}`` when none declared."""
+def _tags_file(
+    obj: Dict[str, Any],
+    object_name: str,
+    contract_tags: Dict[str, str],
+    properties: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """UC tags file: table-level ``tags`` plus a per-column ``columns`` list.
+
+    Always written. ``contract_tags`` are the base applied to every table; an
+    object-level tag of the same key overrides the contract value (object wins).
+    ``columns`` carries one ``{name, tags}`` entry per property (in declaration
+    order, using the contract/logical name), with ``tags: {}`` when the property
+    declares none — mirroring the write schema's column set.
+    """
     return {
         "version": _ARTIFACT_VERSION,
         "table": object_name,
-        "tags": odcs_tags_to_uc(obj),
+        "tags": {**contract_tags, **odcs_tags_to_uc(obj)},
+        "columns": [
+            {"name": prop["name"], "tags": odcs_tags_to_uc(prop)}
+            for prop in properties
+        ],
     }
 
 

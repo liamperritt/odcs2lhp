@@ -55,10 +55,14 @@ def test_e2e_translate_sales_contract_produces_expected_sidecars(tmp_path, fixtu
     assert "customer_id" in write_names  # logical name after transform
     assert "_processing_timestamp" in write_names  # OM kept on write
     assert write["primary_key"] == ["tenant_id", "customer_id"]
+    assert all("tags" not in c for c in write["columns"])  # column tags moved out
 
-    tags = load_yaml(base / "write" / "tags" / "customer_tags.yaml")
+    tags = load_yaml(base / "write" / "uc_tags" / "customer_tags.yaml")
     assert tags["table"] == "customer"
     assert tags["tags"] == {"domain": "sales", "layer": "bronze", "pii": ""}
+    col_tags = {c["name"]: c["tags"] for c in tags["columns"]}
+    assert col_tags["email"] == {"pii": "email", "sensitive": ""}
+    assert col_tags["tenant_id"] == {}  # untagged column present with empty tags
 
     exp = load_yaml(base / "transform" / "expectations" / "customer_expectations.yaml")
     entries = {e["name"]: e for e in exp["expectations"]}
@@ -82,8 +86,8 @@ def test_e2e_translate_multi_object_contract_writes_all_objects(tmp_path, fixtur
         "transform/schemas/products_transform.yaml",
         "write/schemas/orders_schema.yaml",
         "write/schemas/products_schema.yaml",
-        "write/tags/orders_tags.yaml",
-        "write/tags/products_tags.yaml",
+        "write/uc_tags/orders_tags.yaml",
+        "write/uc_tags/products_tags.yaml",
     ]
 
 

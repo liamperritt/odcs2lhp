@@ -42,7 +42,7 @@ def test_cli_writes_all_five_artifact_kinds_under_dot_lhp_odcs(tmp_path, fixture
     assert (odcs / "sales.contract" / "load" / "schemas" / "customer_schema.yaml").is_file()
     assert (odcs / "sales.contract" / "transform" / "schemas" / "customer_transform.yaml").is_file()
     assert (odcs / "sales.contract" / "write" / "schemas" / "customer_schema.yaml").is_file()
-    assert (odcs / "sales.contract" / "write" / "tags" / "customer_tags.yaml").is_file()
+    assert (odcs / "sales.contract" / "write" / "uc_tags" / "customer_tags.yaml").is_file()
     assert (odcs / "sales.contract" / "transform" / "expectations" / "customer_expectations.yaml").is_file()
 
 
