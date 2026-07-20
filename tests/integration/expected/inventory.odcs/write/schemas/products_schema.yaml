@@ -1,0 +1,18 @@
+name: products
+version: 2.1.0
+description: Product catalog
+columns:
+- name: sku
+  type: STRING
+  nullable: false
+  comment: Stock-keeping unit
+- name: unit_price
+  type: DECIMAL(18,2)
+  nullable: false
+  comment: Unit price in USD
+- name: dimensions
+  type: STRUCT<length:DOUBLE,width:DOUBLE>
+  nullable: true
+  comment: Physical dimensions
+primary_key:
+- sku

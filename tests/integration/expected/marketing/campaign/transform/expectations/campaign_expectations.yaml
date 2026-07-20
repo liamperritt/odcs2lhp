@@ -1,0 +1,18 @@
+version: '1.0'
+table: campaign
+expectations:
+- name: campaign_id_not_null
+  expression: '`campaign_id` IS NOT NULL'
+  failureAction: warn
+- name: campaign_name_not_null
+  expression: '`campaign_name` IS NOT NULL'
+  failureAction: warn
+- name: campaign_name_min_length
+  expression: length(`campaign_name`) >= 1
+  failureAction: warn
+- name: campaign_name_max_length
+  expression: length(`campaign_name`) <= 200
+  failureAction: warn
+- name: budget_exclusive_min
+  expression: '`budget` > 0'
+  failureAction: warn

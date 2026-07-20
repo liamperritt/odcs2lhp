@@ -1,0 +1,4 @@
+type_casting:
+  sku: STRING
+  quantity: INT
+  snapshot_at: TIMESTAMP

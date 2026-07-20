@@ -1,0 +1,6 @@
+column_mapping:
+  name: campaign_name
+type_casting:
+  campaign_id: BIGINT
+  campaign_name: STRING
+  budget: DECIMAL(12,2)

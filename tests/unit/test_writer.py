@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from odcs2lhp.translator import Artifact
-from odcs2lhp.writer import write_artifacts
+from odcs2lhp.writer import reset_output_dir, write_artifacts
 
 from .conftest import load_yaml
 
@@ -50,3 +50,26 @@ def test_write_artifacts_overwrites_cleanly_on_rerun(tmp_path):
     write_artifacts([Artifact("s.yaml", {"n": 2})], tmp_path)
 
     assert load_yaml(tmp_path / "s.yaml") == {"n": 2}
+
+
+# --- reset_output_dir -------------------------------------------------------
+
+
+def test_reset_output_dir_removes_existing_files(tmp_path):
+    out = tmp_path / "odcs"
+    stale = out / "stale" / "old.yaml"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("gone: true\n", encoding="utf-8")
+
+    reset_output_dir(out)
+
+    assert out.is_dir()
+    assert list(out.iterdir()) == []
+
+
+def test_reset_output_dir_creates_dir_when_absent(tmp_path):
+    out = tmp_path / "nested" / "odcs"
+
+    reset_output_dir(out)
+
+    assert out.is_dir()

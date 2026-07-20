@@ -1,0 +1,29 @@
+version: '1.0'
+table: customer
+tags:
+  layer: silver
+  domain: sales
+  owner: crm
+  pii: ''
+columns:
+- name: customer_id
+  tags:
+    semantic: identifier
+- name: tenant_id
+  tags: {}
+- name: email
+  tags:
+    pii: email
+    sensitive: ''
+- name: signup_count
+  tags: {}
+- name: labels
+  tags: {}
+- name: _processing_timestamp
+  tags: {}
+- name: _source_file
+  tags: {}
+- name: __START_AT
+  tags: {}
+- name: __END_AT
+  tags: {}

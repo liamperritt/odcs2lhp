@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import shutil
 
+from pathlib import Path
+
 from odcs2lhp.discovery import (
     SCD2_COLUMNS,
-    contract_stem,
+    contract_output_prefix,
     discover_contracts,
     exclusion_columns,
     find_project_root,
@@ -72,10 +74,23 @@ def test_discover_contracts_returns_empty_when_dir_missing(tmp_path):
     assert discover_contracts(tmp_path / "does_not_exist") == []
 
 
-def test_contract_stem_splits_on_first_dot_when_multi_suffix():
-    assert contract_stem("sales.contract.yaml") == "sales"
-    assert contract_stem("orders.odcs.yaml") == "orders"
+def test_contract_output_prefix_mirrors_subdirectory_and_full_filename():
+    prefix = contract_output_prefix(
+        Path("contracts/marketing/sales.contract.yaml"), Path("contracts")
+    )
+    assert prefix == "marketing/sales.contract"
 
 
-def test_contract_stem_uses_leading_segment_when_single_suffix():
-    assert contract_stem("customer.yaml") == "customer"
+def test_contract_output_prefix_uses_filename_without_extension_at_top_level():
+    assert (
+        contract_output_prefix(Path("contracts/sales.contract.yaml"), Path("contracts"))
+        == "sales.contract"
+    )
+    assert (
+        contract_output_prefix(Path("contracts/orders.odcs.yml"), Path("contracts"))
+        == "orders.odcs"
+    )
+    assert (
+        contract_output_prefix(Path("contracts/customer.yaml"), Path("contracts"))
+        == "customer"
+    )

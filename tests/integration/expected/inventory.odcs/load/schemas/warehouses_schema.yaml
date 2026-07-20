@@ -1,0 +1,12 @@
+name: warehouses
+version: 2.1.0
+description: Warehouse locations
+columns:
+- name: wh_id
+  type: BIGINT
+  nullable: false
+  comment: Warehouse identifier
+- name: opened_on
+  type: DATE
+  nullable: true
+  comment: Date the warehouse opened

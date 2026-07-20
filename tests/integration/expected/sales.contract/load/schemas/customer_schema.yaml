@@ -1,0 +1,24 @@
+name: customer
+version: 1.0.0
+description: Customer master
+columns:
+- name: cust id
+  type: BIGINT
+  nullable: false
+  comment: Surrogate customer key
+- name: tenant_id
+  type: BIGINT
+  nullable: false
+  comment: Tenant partition key
+- name: email
+  type: STRING
+  nullable: true
+  comment: Customer email
+- name: signup_count
+  type: INT
+  nullable: true
+  comment: Number of signups
+- name: labels
+  type: ARRAY<STRING>
+  nullable: true
+  comment: Free-form labels

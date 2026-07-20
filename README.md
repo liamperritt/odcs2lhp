@@ -18,34 +18,42 @@ pip install -e .   # from this directory
 
 ```bash
 # from your LHP project root (default contracts dir is ./contracts)
-odcs2lhp
+odcs2lhp translate
 
 # custom contracts directory
-odcs2lhp --contracts-dir data_contracts
+odcs2lhp translate --contracts-dir data_contracts
 
 # other options
-odcs2lhp --project-root /path/to/project --output-dir /path/to/out -v
+odcs2lhp translate --project-root /path/to/project -v
 ```
 
-`odcs2lhp` runs *before* `lhp validate` / `lhp generate`:
+Each run wipes and rebuilds the output directory, so the sidecars are always a
+fresh reflection of your contracts.
+
+`odcs2lhp translate` runs *before* `lhp validate` / `lhp generate`:
 
 ```bash
-odcs2lhp && lhp validate --env dev && lhp generate --env dev
+odcs2lhp translate && lhp validate --env dev && lhp generate --env dev
 ```
 
 ## What it writes
 
-For every schema object in every discovered contract (stem = filename up to the
-first dot, e.g. `sales.contract.yaml` -> `sales`), five sidecars are written
-under `.lhp/odcs/` (which LHP already gitignores):
+For every schema object in every discovered contract, five sidecars are written
+under `.lhp/odcs/` (which LHP already gitignores). The path mirrors the contract
+file's location under the contracts dir plus its filename without extension —
+`<prefix>` — so each contract's output tree is unique (e.g.
+`contracts/marketing/sales.contract.yaml` -> prefix `marketing/sales.contract`).
+The contract version lives in the file content, not the path.
 
 | Sidecar | Path | Referenced from a pipeline action via |
 |---|---|---|
-| Load schema | `schemas/load/<stem>__<obj>_schema.yaml` | `source.schema` / `cloudFiles.schemaHints` on a cloudFiles load |
-| Transform schema | `schemas/transform/<stem>__<obj>_schema.yaml` | `schema_file` on a `transform_type: schema` action |
-| Write schema | `schemas/write/<stem>__<obj>_schema.yaml` | `write_target.table_schema` on a write action |
-| Table tags | `tags/<stem>__<obj>_tags.yaml` | *(table-level tags — planned LHP support)* |
-| Expectations | `expectations/<stem>__<obj>_expectations.yaml` | `expectations_file` on a `transform_type: data_quality` action |
+| Load schema | `<prefix>/load/schemas/<obj>_schema.yaml` | `source.schema` / `cloudFiles.schemaHints` on a cloudFiles load |
+| Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `schema_file` on a `transform_type: schema` action |
+| Expectations | `<prefix>/transform/expectations/<obj>_expectations.yaml` | `expectations_file` on a `transform_type: data_quality` action |
+| Write schema | `<prefix>/write/schemas/<obj>_schema.yaml` | `write_target.table_schema` on a write action |
+| UC tags | `<prefix>/write/uc_tags/<obj>_tags.yaml` | *(table-level + per-column UC tags)* |
+
+For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
 
 ### Details
 
@@ -58,8 +66,11 @@ under `.lhp/odcs/` (which LHP already gitignores):
 - **Expectations** combine `required: true` -> `<col> IS NOT NULL` with each
   property's `logicalTypeOptions` predicates. `failureAction` is `fail` for a
   `criticalDataElement` property, else `warn`.
-- **Column** UC tags ride on the write schema; **table** UC tags go in the tags
-  file. Tag strings use the `key:value` convention (colon-less -> key-only tag).
+- **UC tags** all live in the `write/uc_tags/<obj>_tags.yaml` file: table-level tags
+  under `tags`, and per-column tags under `columns` (one `{name, tags}` entry per
+  column, `tags: {}` when none). Contract-level tags form the base applied to every
+  table, and an object-level tag of the same key overrides the contract value. Tag
+  strings use the `key:value` convention (colon-less -> key-only tag).
 
 ## Example pipeline references
 
@@ -70,7 +81,7 @@ under `.lhp/odcs/` (which LHP already gitignores):
     type: cloudfiles
     path: ${landing}/customer/*.json
     format: json
-    schema: .lhp/odcs/schemas/load/sales__customer_schema.yaml
+    schema: .lhp/odcs/sales.contract/load/schemas/customer_schema.yaml
   target: v_customer_raw
 
 - name: cast_customer
@@ -78,14 +89,14 @@ under `.lhp/odcs/` (which LHP already gitignores):
   transform_type: schema
   source: v_customer_raw
   target: v_customer_mapped
-  schema_file: .lhp/odcs/schemas/transform/sales__customer_schema.yaml
+  schema_file: .lhp/odcs/sales.contract/transform/schemas/customer_transform.yaml
 
 - name: validate_customer
   type: transform
   transform_type: data_quality
   source: v_customer_mapped
   target: v_customer_validated
-  expectations_file: .lhp/odcs/expectations/sales__customer_expectations.yaml
+  expectations_file: .lhp/odcs/sales.contract/transform/expectations/customer_expectations.yaml
 
 - name: write_customer
   type: write
@@ -95,5 +106,5 @@ under `.lhp/odcs/` (which LHP already gitignores):
     catalog: ${catalog}
     schema: ${bronze_schema}
     table: customer
-    table_schema: .lhp/odcs/schemas/write/sales__customer_schema.yaml
+    table_schema: .lhp/odcs/sales.contract/write/schemas/customer_schema.yaml
 ```

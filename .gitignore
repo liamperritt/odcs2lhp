@@ -36,5 +36,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Agents
+.claude/
+.cursor/
+
 # LHP
 .lhp/

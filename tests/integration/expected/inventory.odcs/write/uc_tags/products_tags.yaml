@@ -1,0 +1,12 @@
+version: '1.0'
+table: products
+tags:
+  domain: catalog
+columns:
+- name: sku
+  tags:
+    semantic: identifier
+- name: unit_price
+  tags: {}
+- name: dimensions
+  tags: {}

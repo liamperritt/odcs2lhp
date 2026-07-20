@@ -1,0 +1,18 @@
+version: '1.0'
+table: stock_levels
+expectations:
+- name: sku_not_null
+  expression: '`sku` IS NOT NULL'
+  failureAction: warn
+- name: quantity_not_null
+  expression: '`quantity` IS NOT NULL'
+  failureAction: warn
+- name: quantity_min
+  expression: '`quantity` >= 0'
+  failureAction: warn
+- name: snapshot_at_not_null
+  expression: '`snapshot_at` IS NOT NULL'
+  failureAction: warn
+- name: snapshot_at_exclusive_max
+  expression: '`snapshot_at` < ''2999-01-01T00:00:00'''
+  failureAction: warn

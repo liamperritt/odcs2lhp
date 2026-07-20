@@ -1,0 +1,10 @@
+name: odcs2lhp_integration_project
+version: "1.0"
+operational_metadata:
+  columns:
+    _processing_timestamp:
+      expression: "F.current_timestamp()"
+      applies_to: ["view"]
+    _source_file:
+      expression: "F.input_file_name()"
+      applies_to: ["view"]

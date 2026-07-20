@@ -1,0 +1,36 @@
+version: '1.0'
+table: customer
+expectations:
+- name: customer_id_not_null
+  expression: '`customer_id` IS NOT NULL'
+  failureAction: fail
+- name: customer_id_min
+  expression: '`customer_id` >= 1'
+  failureAction: fail
+- name: tenant_id_not_null
+  expression: '`tenant_id` IS NOT NULL'
+  failureAction: warn
+- name: email_min_length
+  expression: length(`email`) >= 3
+  failureAction: warn
+- name: email_max_length
+  expression: length(`email`) <= 320
+  failureAction: warn
+- name: email_pattern
+  expression: '`email` RLIKE ''^[^@]+@[^@]+\\.[^@]+$'''
+  failureAction: warn
+- name: signup_count_exclusive_min
+  expression: '`signup_count` > 0'
+  failureAction: warn
+- name: signup_count_multiple_of
+  expression: '`signup_count` % 1 = 0'
+  failureAction: warn
+- name: labels_min_items
+  expression: '`labels` IS NULL OR (size(`labels`) >= 1)'
+  failureAction: warn
+- name: labels_max_items
+  expression: '`labels` IS NULL OR (size(`labels`) <= 20)'
+  failureAction: warn
+- name: labels_unique_items
+  expression: '`labels` IS NULL OR (size(`labels`) = size(array_distinct(`labels`)))'
+  failureAction: warn

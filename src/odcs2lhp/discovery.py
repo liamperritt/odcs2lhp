@@ -89,11 +89,13 @@ def discover_contracts(contracts_dir: Path) -> List[Path]:
     return sorted(found)
 
 
-def contract_stem(contract_path: Path) -> str:
-    """Derive the sidecar filename stem from a contract filename.
+def contract_output_prefix(contract_path: Path, contracts_dir: Path) -> str:
+    """Output-path prefix mirroring a contract's location under ``contracts_dir``.
 
-    Splits the filename on the **first** dot so multi-suffix names collapse to
-    their leading segment: ``sales.contract.yaml`` -> ``sales``,
-    ``orders.odcs.yaml`` -> ``orders``, ``customer.yaml`` -> ``customer``.
+    Combines the contract's relative subdirectory with its filename minus the final
+    extension, so each contract file gets a unique output tree:
+    ``contracts/marketing/sales.contract.yaml`` (dir ``contracts``) ->
+    ``marketing/sales.contract``; ``contracts/customer.yaml`` -> ``customer``.
     """
-    return Path(contract_path).name.split(".", 1)[0]
+    rel = Path(contract_path).relative_to(contracts_dir)
+    return (rel.parent / rel.stem).as_posix()

@@ -1,0 +1,12 @@
+version: '1.0'
+table: stock_levels
+tags:
+  domain: inventory
+  layer: bronze
+columns:
+- name: sku
+  tags: {}
+- name: quantity
+  tags: {}
+- name: snapshot_at
+  tags: {}

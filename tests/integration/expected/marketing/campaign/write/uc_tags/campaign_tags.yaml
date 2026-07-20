@@ -1,0 +1,13 @@
+version: '1.0'
+table: campaign
+tags:
+  domain: marketing
+  layer: bronze
+columns:
+- name: campaign_id
+  tags: {}
+- name: campaign_name
+  tags:
+    pii: 'false'
+- name: budget
+  tags: {}

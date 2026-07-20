@@ -1,0 +1,5 @@
+column_mapping:
+  wh_id: warehouse_id
+type_casting:
+  warehouse_id: BIGINT
+  opened_on: DATE
