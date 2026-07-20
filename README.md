@@ -81,7 +81,7 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
     type: cloudfiles
     path: ${landing}/customer/*.json
     format: json
-    schema: .lhp/odcs/schemas/load/sales__customer_schema.yaml
+    schema: .lhp/odcs/sales.contract/load/schemas/customer_schema.yaml
   target: v_customer_raw
 
 - name: cast_customer
@@ -89,14 +89,14 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
   transform_type: schema
   source: v_customer_raw
   target: v_customer_mapped
-  schema_file: .lhp/odcs/schemas/transform/sales__customer_schema.yaml
+  schema_file: .lhp/odcs/sales.contract/transform/schemas/customer_transform.yaml
 
 - name: validate_customer
   type: transform
   transform_type: data_quality
   source: v_customer_mapped
   target: v_customer_validated
-  expectations_file: .lhp/odcs/expectations/sales__customer_expectations.yaml
+  expectations_file: .lhp/odcs/sales.contract/transform/expectations/customer_expectations.yaml
 
 - name: write_customer
   type: write
@@ -106,5 +106,5 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
     catalog: ${catalog}
     schema: ${bronze_schema}
     table: customer
-    table_schema: .lhp/odcs/schemas/write/sales__customer_schema.yaml
+    table_schema: .lhp/odcs/sales.contract/write/schemas/customer_schema.yaml
 ```
