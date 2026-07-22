@@ -1,6 +1,10 @@
 column_mapping:
   name: campaign_name
+  launch_date: launch_date
+  audience: audience
+  channels: channels
 type_casting:
   campaign_id: BIGINT
   campaign_name: STRING
   budget: DECIMAL(12,2)
+  reporting_date: DATE

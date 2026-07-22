@@ -99,10 +99,11 @@ _NUMBER_FORMAT_TYPES = {
 }
 
 # Spark families accepted as a valid refinement of each scalar logical type.
-# ``integer`` is treated as a subtype of ``number``; ``binary`` as a subtype of
+# ``integer`` is treated as a subtype of ``number``; ``binary`` and the
+# string-serialisable ``interval``/``geography``/``geometry`` as subtypes of
 # ``string``.
 _COMPATIBLE_FAMILIES = {
-    "string": {"string", "binary"},
+    "string": {"string", "binary", "interval", "geography", "geometry"},
     "boolean": {"boolean"},
     "date": {"date"},
     "timestamp": {"timestamp"},
@@ -117,17 +118,6 @@ _COMPATIBLE_COMPLEX_FAMILIES = {
     "object": {"struct", "map", "variant"},
     "array": {"array"},
 }
-
-# A JDK/Spark datetime pattern is safe for a bare ``CAST(... AS DATE/TIMESTAMP)``
-# only when it matches Spark's default parse shape. Non-matching patterns would
-# silently cast to NULL, so we keep such columns as ``STRING`` until LHP gains
-# format-aware parsing.
-_SPARK_DEFAULT_DATETIME_FORMAT = re.compile(
-    r"^y{4,}(?:-M{1,2}(?:-d{1,2}(?:(?: |'T')H{1,2}"
-    r"(?::m{1,2}(?::s{1,2}(?:.S{1,6})?)?)?"
-    r"(?:VV|z{1,4}|O|OOOO|X{1,5}|x{1,5}|Z{1,5})?)?)?)?$"
-)
-
 
 def _unmappable(prop: Dict[str, Any]) -> Odcs2LhpError:
     logical = prop.get("logicalType")
@@ -144,12 +134,6 @@ def _unmappable(prop: Dict[str, Any]) -> Odcs2LhpError:
             "date, timestamp, time, object, array",
         ],
     )
-
-
-def _format_is_spark_default(options: Dict[str, Any]) -> bool:
-    """True when ``logicalTypeOptions.format`` matches Spark's default parse shape."""
-    fmt = options.get("format")
-    return isinstance(fmt, str) and bool(_SPARK_DEFAULT_DATETIME_FORMAT.match(fmt))
 
 
 def _logical_to_spark(prop: Dict[str, Any]) -> str:
@@ -207,10 +191,11 @@ def _logical_array_to_spark(prop: Dict[str, Any]) -> str:
 def _physical_is_usable(prop: Dict[str, Any], logical: str) -> bool:
     """Decide whether ``physicalType`` should be used verbatim as the target type.
 
-    Applies the family-compatibility rules and the string->temporal format guard.
-    Complex logical types (object/array) are handled by the caller when they
-    carry a logical shape; this only judges a physical type against a scalar or
-    shapeless complex logical.
+    Applies the family-compatibility rules. Complex logical types (object/array)
+    are handled by the caller when they carry a logical shape; this only judges a
+    physical type against a scalar or shapeless complex logical. Deferred
+    string-encoded conversions are intercepted by the caller before this is
+    reached (see :func:`is_deferred_conversion`).
     """
     physical = prop.get("physicalType")
     node = parse_spark_ddl(physical) if physical else None
@@ -218,12 +203,6 @@ def _physical_is_usable(prop: Dict[str, Any], logical: str) -> bool:
         return False
 
     family = spark_family(node)
-    options = prop.get("logicalTypeOptions") or {}
-
-    if logical in ("date", "timestamp") and family == "string":
-        # A string source only becomes a temporal type when its declared format
-        # is safe for a bare cast; otherwise it stays a string.
-        return not _format_is_spark_default(options)
 
     if logical in _COMPATIBLE_COMPLEX_FAMILIES:
         return family in _COMPATIBLE_COMPLEX_FAMILIES[logical]
@@ -238,6 +217,28 @@ def _has_numeric_format(prop: Dict[str, Any], logical: str) -> bool:
     return bool((prop.get("logicalTypeOptions") or {}).get("format"))
 
 
+def is_deferred_conversion(prop: Dict[str, Any]) -> bool:
+    """True when a string-physical column needs a parse a bare cast can't do.
+
+    These conversions are deferred to a later feature: ``string``->object/array
+    (a JSON parse) and ``string``->``date``/``timestamp`` *with a declared
+    ``format``* (a format-aware parse). For now such columns keep their (string)
+    physical type. A ``date``/``timestamp`` with no ``format`` is NOT deferred — a
+    bare Spark cast handles it — nor is any non-string physical type.
+    """
+    physical = prop.get("physicalType")
+    node = parse_spark_ddl(physical) if physical else None
+    if node is None or spark_family(node) != "string":
+        return False
+
+    logical = prop.get("logicalType")
+    if logical in ("object", "array"):
+        return True
+    if logical in ("date", "timestamp"):
+        return bool((prop.get("logicalTypeOptions") or {}).get("format"))
+    return False
+
+
 def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
     """Resolve an ODCS schema property to a Spark DDL type string.
 
@@ -247,12 +248,16 @@ def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
 
     - **No logicalType:** use ``physicalType`` verbatim if it is valid Spark DDL,
       else raise.
+    - **Deferred conversions:** a string-physical column whose logical type needs a
+      parse a bare cast can't do (JSON->object/array, or a formatted
+      ``date``/``timestamp``) keeps its ``physicalType`` (a string) — the parse is
+      deferred to a later feature (see :func:`is_deferred_conversion`).
     - **Logical shape wins:** an object with ``properties``, an array with
       ``items``, or a numeric type with ``logicalTypeOptions.format`` builds the
       type from the logical definition, ignoring ``physicalType``.
     - **Scalar (and shapeless complex):** use ``physicalType`` verbatim when its
-      family matches; a ``STRING`` physical for a ``date``/``timestamp`` logical
-      only becomes temporal when ``logicalTypeOptions.format`` is Spark-default.
+      family matches; a ``STRING`` physical for a ``date``/``timestamp`` logical with
+      no ``format`` becomes ``DATE``/``TIMESTAMP`` (a bare cast).
 
     :raises Odcs2LhpError: when the type is unmappable.
     """
@@ -263,6 +268,11 @@ def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
         if physical and parse_spark_ddl(physical) is not None:
             return physical
         raise _unmappable(prop)
+
+    # A string-encoded value needing a non-cast parse keeps its string type; the
+    # conversion is deferred to a later feature.
+    if is_deferred_conversion(prop):
+        return physical
 
     # A defined logical shape always wins: object properties, array items, or a
     # numeric format all pin the target type regardless of physicalType.
@@ -338,7 +348,15 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
     property ``required`` flag is NOT translated here (see
     :func:`odcs2lhp.translator` for the NOT NULL expectation). Unknown options are
     skipped.
+
+    A deferred string-encoded column (see :func:`is_deferred_conversion`) yields no
+    predicates: its ``logicalTypeOptions`` describe the *parsed* shape (object
+    fields, array size, temporal bounds), which cannot be evaluated against the
+    still-unconverted string.
     """
+    if is_deferred_conversion(prop):
+        return []
+
     col = prop["name"]
     qcol = quote_identifier(col)
     scol = sanitize_name(col)

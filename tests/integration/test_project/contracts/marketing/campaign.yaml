@@ -36,3 +36,31 @@ schema:
         description: Campaign budget
         logicalTypeOptions:
           exclusiveMinimum: 0
+      - name: reporting_date
+        logicalType: date
+        physicalType: STRING
+        description: ISO reporting date, bare-castable to DATE
+      - name: launch_date
+        logicalType: date
+        physicalType: STRING
+        description: Launch date in a US format (deferred, stays STRING)
+        logicalTypeOptions:
+          format: "MM/dd/yyyy"
+      - name: audience
+        logicalType: object
+        physicalType: STRING
+        description: JSON-encoded target audience (deferred, stays STRING)
+        properties:
+          - name: segment
+            logicalType: string
+            physicalType: STRING
+          - name: size
+            logicalType: integer
+            physicalType: INT
+      - name: channels
+        logicalType: array
+        physicalType: STRING
+        description: JSON-encoded delivery channels (deferred, stays STRING)
+        items:
+          logicalType: string
+          physicalType: STRING

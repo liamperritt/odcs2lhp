@@ -10,9 +10,10 @@ SQL DDL type string (e.g. ``"DECIMAL(18,2)"``, ``"ARRAY<STRING>"``,
   ``NUMBER`` is not a Spark type, hence ``None``).
 - :func:`spark_family` -> a coarse family name (``"integer"``, ``"fractional"``,
   ``"string"``, ``"boolean"``, ``"date"``, ``"timestamp"``, ``"binary"``,
-  ``"array"``, ``"map"``, ``"struct"``, ``"variant"``, or ``"other"``) used to
-  decide type compatibility. ``"other"`` covers valid Spark types with no
-  compatible ODCS logical type (e.g. ``INTERVAL``, ``GEOGRAPHY``).
+  ``"interval"``, ``"geography"``, ``"geometry"``, ``"array"``, ``"map"``,
+  ``"struct"``, ``"variant"``, or ``"other"``) used to decide type compatibility.
+  ``"other"`` covers valid Spark types with no compatible ODCS logical type
+  (e.g. ``VOID``, ``NULL``).
 
 Parsing is case-insensitive, whitespace-tolerant, and bracket-aware (nested
 generics split on top-level commas only).
@@ -51,10 +52,12 @@ _SCALAR_FAMILIES = {
     "TIMESTAMP_NTZ": "timestamp",
     "TIMESTAMP_LTZ": "timestamp",
     "BINARY": "binary",
+    # String-serialisable types: each its own family, treated (like ``binary``)
+    # as a valid refinement of the ``string`` logical type.
+    "INTERVAL": "interval",
+    "GEOGRAPHY": "geography",
+    "GEOMETRY": "geometry",
     # Valid Spark types with no compatible ODCS logical type.
-    "INTERVAL": "other",
-    "GEOGRAPHY": "other",
-    "GEOMETRY": "other",
     "VOID": "other",
     "NULL": "other",
 }

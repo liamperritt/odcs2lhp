@@ -11,3 +11,11 @@ columns:
     pii: 'false'
 - name: budget
   tags: {}
+- name: reporting_date
+  tags: {}
+- name: launch_date
+  tags: {}
+- name: audience
+  tags: {}
+- name: channels
+  tags: {}

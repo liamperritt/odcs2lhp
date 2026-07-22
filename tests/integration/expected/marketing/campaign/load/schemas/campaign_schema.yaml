@@ -14,3 +14,19 @@ columns:
   type: DECIMAL(12,2)
   nullable: true
   comment: Campaign budget
+- name: reporting_date
+  type: DATE
+  nullable: true
+  comment: ISO reporting date, bare-castable to DATE
+- name: launch_date
+  type: STRING
+  nullable: true
+  comment: Launch date in a US format (deferred, stays STRING)
+- name: audience
+  type: STRING
+  nullable: true
+  comment: JSON-encoded target audience (deferred, stays STRING)
+- name: channels
+  type: STRING
+  nullable: true
+  comment: JSON-encoded delivery channels (deferred, stays STRING)

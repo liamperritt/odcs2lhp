@@ -63,6 +63,9 @@ def test_parse_spark_ddl_parses_varchar_with_length_as_string_family():
         ("TIMESTAMP", "timestamp"),
         ("TIMESTAMP_NTZ", "timestamp"),
         ("BINARY", "binary"),
+        ("INTERVAL", "interval"),
+        ("GEOGRAPHY", "geography"),
+        ("GEOMETRY", "geometry"),
     ],
 )
 def test_parse_spark_ddl_classifies_scalar_family(text, expected_family):
@@ -86,8 +89,8 @@ def test_parse_spark_ddl_tolerates_surrounding_whitespace():
     assert node.params == ("8", "2")
 
 
-def test_parse_spark_ddl_classifies_unknown_named_type_as_other():
-    node = parse_spark_ddl("INTERVAL")
+def test_parse_spark_ddl_classifies_typeless_named_type_as_other():
+    node = parse_spark_ddl("VOID")
 
     assert node is not None
     assert spark_family(node) == "other"

@@ -197,6 +197,18 @@ def test_type_mapping_uses_physical_binary_when_logical_is_string():
     assert _one_type({"logicalType": "string", "physicalType": "BINARY"}) == "BINARY"
 
 
+def test_type_mapping_uses_physical_interval_when_logical_is_string():
+    assert _one_type({"logicalType": "string", "physicalType": "INTERVAL"}) == "INTERVAL"
+
+
+def test_type_mapping_uses_physical_geography_when_logical_is_string():
+    assert _one_type({"logicalType": "string", "physicalType": "GEOGRAPHY"}) == "GEOGRAPHY"
+
+
+def test_type_mapping_uses_physical_geometry_when_logical_is_string():
+    assert _one_type({"logicalType": "string", "physicalType": "GEOMETRY"}) == "GEOMETRY"
+
+
 def test_type_mapping_uses_physical_decimal_when_logical_is_number():
     assert (
         _one_type({"logicalType": "number", "physicalType": "DECIMAL(8,2)"})
@@ -230,7 +242,9 @@ def test_type_mapping_errors_when_logical_absent_and_physical_unparseable():
 # --- string -> temporal format guard ----------------------------------------
 
 
-def test_type_mapping_casts_string_to_timestamp_when_format_is_spark_default():
+def test_type_mapping_defers_string_to_timestamp_when_format_present():
+    # A declared format needs a format-aware parse (deferred to a later feature),
+    # so the column keeps its string type here.
     assert (
         _one_type(
             {
@@ -239,11 +253,11 @@ def test_type_mapping_casts_string_to_timestamp_when_format_is_spark_default():
                 "logicalTypeOptions": {"format": "yyyy-MM-dd HH:mm:ss"},
             }
         )
-        == "TIMESTAMP"
+        == "STRING"
     )
 
 
-def test_type_mapping_casts_string_to_date_when_format_is_spark_default():
+def test_type_mapping_defers_string_to_date_when_format_present():
     assert (
         _one_type(
             {
@@ -252,11 +266,11 @@ def test_type_mapping_casts_string_to_date_when_format_is_spark_default():
                 "logicalTypeOptions": {"format": "yyyy-MM-dd"},
             }
         )
-        == "DATE"
+        == "STRING"
     )
 
 
-def test_type_mapping_keeps_string_when_timestamp_format_is_non_default():
+def test_type_mapping_defers_string_to_timestamp_when_format_is_non_default():
     assert (
         _one_type(
             {
@@ -269,10 +283,15 @@ def test_type_mapping_keeps_string_when_timestamp_format_is_non_default():
     )
 
 
-def test_type_mapping_keeps_string_when_temporal_has_no_format():
+def test_type_mapping_casts_string_to_timestamp_when_no_format():
+    # No format is a bare cast Spark handles, so it becomes TIMESTAMP.
     assert (
-        _one_type({"logicalType": "timestamp", "physicalType": "STRING"}) == "STRING"
+        _one_type({"logicalType": "timestamp", "physicalType": "STRING"}) == "TIMESTAMP"
     )
+
+
+def test_type_mapping_casts_string_to_date_when_no_format():
+    assert _one_type({"logicalType": "date", "physicalType": "STRING"}) == "DATE"
 
 
 def test_type_mapping_uses_timestamp_when_logical_temporal_and_no_physical():

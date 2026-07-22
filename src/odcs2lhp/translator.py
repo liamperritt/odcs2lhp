@@ -29,6 +29,7 @@ from typing import Any, Dict, FrozenSet, List, Optional
 
 from .errors import Odcs2LhpError
 from .mapper import (
+    is_deferred_conversion,
     odcs_property_to_constraints,
     odcs_tags_to_uc,
     odcs_type_to_spark,
@@ -203,6 +204,12 @@ def _transform_schema(
     ``column_mapping`` renames a source (physical) name to the contract name only
     when they differ; ``type_casting`` casts every kept column to its contract
     type. OM/SCD2 columns are skipped (they flow through untouched).
+
+    A deferred string-encoded column (see :func:`odcs2lhp.mapper.is_deferred_conversion`)
+    gets **no** ``type_casting`` entry — a bare cast can't perform its parse, which
+    is left to a later feature. It is still named in ``column_mapping`` (a real
+    rename when ``physicalName`` differs, else a no-op self-rename) so a
+    ``strict``-enforcement schema transform keeps the column instead of dropping it.
     """
     column_mapping: Dict[str, str] = {}
     type_casting: Dict[str, str] = {}
@@ -210,10 +217,16 @@ def _transform_schema(
         name = prop["name"]
         if name in exclude:
             continue
+        deferred = is_deferred_conversion(prop)
         source_name = prop.get("physicalName")
         if source_name and source_name != name:
             column_mapping[source_name] = name
-        type_casting[name] = odcs_type_to_spark(prop)
+        elif deferred:
+            # No rename and no cast would drop this column under strict mode; a
+            # self-rename keeps it present.
+            column_mapping[name] = name
+        if not deferred:
+            type_casting[name] = odcs_type_to_spark(prop)
 
     schema: Dict[str, Any] = {}
     if column_mapping:
