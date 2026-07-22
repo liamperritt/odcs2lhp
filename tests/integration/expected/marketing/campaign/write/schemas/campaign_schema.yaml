@@ -14,5 +14,33 @@ columns:
   type: DECIMAL(12,2)
   nullable: true
   comment: Campaign budget
+- name: launch_date
+  type: DATE
+  nullable: true
+  comment: Launch date, US-formatted string in the source
+- name: created_at
+  type: TIMESTAMP
+  nullable: true
+  comment: Creation timestamp, ISO-with-T string in the source
+- name: updated_at
+  type: TIMESTAMP
+  nullable: true
+  comment: Update timestamp, wall-clock string in a fixed zone
+- name: audience
+  type: STRUCT<segment:STRING,size:INT>
+  nullable: true
+  comment: Target audience, JSON-encoded object in the source
+- name: channels
+  type: ARRAY<STRING>
+  nullable: true
+  comment: Delivery channels, JSON array in the source
+- name: raw_payload
+  type: VARIANT
+  nullable: true
+  comment: Free-form vendor payload, parsed to a variant
+- name: tracking_pixel
+  type: BINARY
+  nullable: true
+  comment: Base64-encoded tracking pixel bytes
 primary_key:
 - campaign_id

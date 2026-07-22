@@ -52,6 +52,15 @@ def test_write_artifacts_overwrites_cleanly_on_rerun(tmp_path):
     assert load_yaml(tmp_path / "s.yaml") == {"n": 2}
 
 
+def test_write_artifacts_writes_python_module_verbatim_when_artifact_has_text(tmp_path):
+    module = '"""Doc"""\ndef convert_types(df):\n    return df\n'
+    write_artifacts([Artifact("transform/python/t_convert.py", {}, text=module)], tmp_path)
+
+    assert (tmp_path / "transform" / "python" / "t_convert.py").read_text(
+        encoding="utf-8"
+    ) == module
+
+
 # --- reset_output_dir -------------------------------------------------------
 
 

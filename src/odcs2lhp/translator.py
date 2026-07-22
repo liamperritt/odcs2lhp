@@ -1,6 +1,6 @@
 """Translate a parsed ODCS contract into LHP sidecar artifacts.
 
-Each schema object in a contract produces five :class:`Artifact` sidecars,
+Each schema object in a contract produces six :class:`Artifact` sidecars,
 laid out under ``<contract-path-prefix>/<action_type>/<sidecar_type>/`` (the prefix
 mirrors the contract file's location + name, e.g. ``marketing/sales.contract``) —
 grouped by the LHP pipeline stage (action) that consumes each one:
@@ -8,6 +8,12 @@ grouped by the LHP pipeline stage (action) that consumes each one:
 - a **load** schema (cloudFiles read schema; columns named by ``physicalName``),
 - a **transform** schema (``column_mapping`` + ``type_casting`` for a
   ``transform_type: schema`` action; ``_transform.yaml`` suffix),
+- a **type-convert** Python module (``transform/python/<obj>_convert.py``), applied
+  by a ``transform_type: python`` action, that parses string-encoded values a plain
+  cast cannot: ``to_date``/``to_timestamp`` (format-aware, timezone-aware),
+  ``from_json`` (string→struct/array), ``parse_json`` (string→variant), and
+  ``unbase64`` (base64 string→binary). Always emitted; a passthrough (``return df``)
+  when the object has no such columns,
 - an **expectations** file, applied in the transform stage
   (``logicalTypeOptions`` predicates plus a NOT NULL check per ``required``
   property),
@@ -20,6 +26,14 @@ grouped by the LHP pipeline stage (action) that consumes each one:
 Load and transform schemas exclude the operational-metadata and SCD2 columns
 (``exclude``): those are not sourced from the input data. The write schema
 keeps every column (they are part of the written table).
+
+A converted column's type is split across the sidecars: the **load** schema keeps
+its raw string type (``from_json``/``unbase64`` consume a string), the type-convert
+module produces the parsed value, and the **write** schema records the final parsed
+type. Such columns are dropped from the transform schema's ``type_casting`` so a
+plain cast never fights the runtime parse. The type-convert module is meant to run
+on the raw load (before the schema transform renames columns), so it references
+each column by its source ``physicalName``.
 """
 
 from __future__ import annotations
@@ -36,9 +50,14 @@ from .mapper import (
     quote_identifier,
     sanitize_name,
     slug,
+    string_conversion,
 )
+from .template_renderer import TYPE_CONVERT_FUNCTION, TemplateRenderer
 
 _ARTIFACT_VERSION = "1.0"
+
+# Shared across all objects so the Jinja environment/template compile once.
+_RENDERER = TemplateRenderer()
 
 
 @dataclass(frozen=True)
@@ -47,11 +66,15 @@ class Artifact:
 
     :param relative_path: POSIX path relative to the output dir (``.lhp/odcs``),
         e.g. ``marketing/sales.contract/load/schemas/customer_schema.yaml``.
-    :param data: the YAML-serializable mapping to write.
+    :param data: the YAML-serializable mapping to write (for YAML sidecars).
+    :param text: pre-rendered file contents written verbatim (for non-YAML
+        sidecars such as generated ``.py`` transform modules). When set, the
+        writer emits ``text`` as-is and ignores ``data``.
     """
 
     relative_path: str
     data: Dict[str, Any]
+    text: Optional[str] = None
 
 
 def assert_unique_relative_paths(artifacts: List[Artifact]) -> None:
@@ -147,6 +170,11 @@ def _translate_object(
             _transform_schema(properties, exclude),
         ),
         Artifact(
+            f"{base}/transform/python/{name}_convert.py",
+            {},
+            text=_type_convert_module(obj, object_name, properties, exclude),
+        ),
+        Artifact(
             f"{base}/transform/expectations/{name}_expectations.yaml",
             _expectations_file(object_name, properties),
         ),
@@ -171,16 +199,20 @@ def _load_schema(
     """Cloud​Files read schema: columns named by ``physicalName``, OM/SCD2 dropped.
 
     Read from the raw source files, so each column uses its source (physical)
-    name where declared. No UC tags here (those ride on the write schema).
+    name where declared. No UC tags here (those ride on the write schema). A
+    column that the type-convert module parses at runtime keeps its raw *string*
+    source type here — the parse (``from_json``/``unbase64``/format-aware temporal)
+    consumes a string, so the read must not pre-declare the parsed type.
     """
     columns: List[Dict[str, Any]] = []
     for prop in properties:
         if prop["name"] in exclude:
             continue
         source_name = prop.get("physicalName") or prop["name"]
+        conversion = string_conversion(prop)
         column: Dict[str, Any] = {
             "name": source_name,
-            "type": odcs_type_to_spark(prop),
+            "type": conversion.source_type if conversion else odcs_type_to_spark(prop),
             "nullable": not prop.get("required", False),
         }
         if "description" in prop:
@@ -202,7 +234,10 @@ def _transform_schema(
 
     ``column_mapping`` renames a source (physical) name to the contract name only
     when they differ; ``type_casting`` casts every kept column to its contract
-    type. OM/SCD2 columns are skipped (they flow through untouched).
+    type. OM/SCD2 columns are skipped (they flow through untouched). Columns the
+    type-convert module handles are still renamed but omitted from
+    ``type_casting`` — that module owns their (non-cast) typing, so a plain cast
+    here would fight the runtime parse.
     """
     column_mapping: Dict[str, str] = {}
     type_casting: Dict[str, str] = {}
@@ -213,13 +248,41 @@ def _transform_schema(
         source_name = prop.get("physicalName")
         if source_name and source_name != name:
             column_mapping[source_name] = name
-        type_casting[name] = odcs_type_to_spark(prop)
+        if string_conversion(prop) is None:
+            type_casting[name] = odcs_type_to_spark(prop)
 
     schema: Dict[str, Any] = {}
     if column_mapping:
         schema["column_mapping"] = column_mapping
     schema["type_casting"] = type_casting
     return schema
+
+
+def _type_convert_module(
+    obj: Dict[str, Any],
+    object_name: str,
+    properties: List[Dict[str, Any]],
+    exclude: FrozenSet[str],
+) -> str:
+    """Render the ``transform_type: python`` type-conversion module for an object.
+
+    Collects the string→typed-value conversions for every kept column (OM/SCD2
+    excluded) and renders them into a per-object module. Always returns a module;
+    with no conversions it is a passthrough (``return df``).
+    """
+    conversions = [
+        conversion
+        for prop in properties
+        if prop["name"] not in exclude
+        and (conversion := string_conversion(prop)) is not None
+    ]
+    description = obj.get("description") or f"Type conversions for {object_name}"
+    return _RENDERER.render_type_convert(
+        object_name=object_name,
+        description=description,
+        conversions=conversions,
+        function_name=TYPE_CONVERT_FUNCTION,
+    )
 
 
 def _write_schema(
@@ -233,13 +296,16 @@ def _write_schema(
     Data has already been renamed/cast by the transform, so columns use their
     contract (logical) names. UC tags no longer ride on the schema columns — they
     live in the ``uc_tags`` file (see :func:`_tags_file`). ``primary_key`` is
-    ordered by ``primaryKeyPosition``.
+    ordered by ``primaryKeyPosition``. A converted column records its parsed
+    target type (e.g. ``TIMESTAMP``/``VARIANT``/``BINARY``) so the written table
+    matches the type-convert module's output rather than the raw string source.
     """
     columns: List[Dict[str, Any]] = []
     for prop in properties:
+        conversion = string_conversion(prop)
         column: Dict[str, Any] = {
             "name": prop["name"],
-            "type": odcs_type_to_spark(prop),
+            "type": conversion.target_type if conversion else odcs_type_to_spark(prop),
             "nullable": not (
                 prop.get("required", False) or prop.get("primaryKey") is True
             ),

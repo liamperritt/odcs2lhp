@@ -1,0 +1,9 @@
+"""{{ description }}"""
+from pyspark.sql import DataFrame, functions as F
+
+
+def {{ function_name }}(df: DataFrame, spark, parameters: dict) -> DataFrame:
+{% for c in conversions %}
+    df = df.withColumn("{{ c.column }}", F.expr("{{ c.sql_expr }}"))
+{% endfor %}
+    return df

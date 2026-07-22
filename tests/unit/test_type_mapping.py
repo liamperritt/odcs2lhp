@@ -256,7 +256,9 @@ def test_type_mapping_casts_string_to_date_when_format_is_spark_default():
     )
 
 
-def test_type_mapping_keeps_string_when_timestamp_format_is_non_default():
+def test_write_schema_types_string_timestamp_as_timestamp_when_format_is_non_default():
+    # A non-default format can't be a bare cast, so the type-convert module parses
+    # it (to_timestamp) and the write schema records the parsed TIMESTAMP type.
     assert (
         _one_type(
             {
@@ -265,11 +267,13 @@ def test_type_mapping_keeps_string_when_timestamp_format_is_non_default():
                 "logicalTypeOptions": {"format": "MM/dd/yyyy"},
             }
         )
-        == "STRING"
+        == "TIMESTAMP"
     )
 
 
 def test_type_mapping_keeps_string_when_temporal_has_no_format():
+    # No format means nothing to parse against: the column stays a STRING (no
+    # conversion), so the write schema keeps STRING too.
     assert (
         _one_type({"logicalType": "timestamp", "physicalType": "STRING"}) == "STRING"
     )
