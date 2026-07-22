@@ -124,14 +124,29 @@ def _unmappable(prop: Dict[str, Any]) -> Odcs2LhpError:
     return Odcs2LhpError(
         "ODCS-TYPE-001",
         (
-            "Could not map ODCS property to a Spark type. Neither a usable "
-            f"'physicalType' nor a recognised 'logicalType' was found "
-            f"(logicalType={logical!r})."
+            "Could not map ODCS property to a Spark type. The 'physicalType' is "
+            f"not valid Spark DDL (logicalType={logical!r})."
         ),
         suggestions=[
-            "Provide an explicit 'physicalType' (e.g. STRING, BIGINT, DECIMAL(18,2))",
-            "Use a supported logicalType: string, integer, number, boolean, "
-            "date, timestamp, time, object, array",
+            "Provide a valid Spark 'physicalType' (e.g. STRING, BIGINT, DECIMAL(18,2))",
+            "For an object/array logicalType, define its 'properties'/'items'.",
+        ],
+    )
+
+
+def _missing_types(prop: Dict[str, Any]) -> Odcs2LhpError:
+    missing = [k for k in ("physicalType", "logicalType") if not prop.get(k)]
+    return Odcs2LhpError(
+        "ODCS-TYPE-001",
+        (
+            f"Could not map ODCS property {prop.get('name')!r} to a Spark type: "
+            f"both 'physicalType' and 'logicalType' are required "
+            f"(missing: {', '.join(missing)})."
+        ),
+        suggestions=[
+            "Declare 'physicalType' (the source Spark DDL type, e.g. STRING, BIGINT).",
+            "Declare 'logicalType' (one of: string, integer, number, boolean, "
+            "date, timestamp, time, object, array).",
         ],
     )
 
@@ -242,12 +257,12 @@ def is_deferred_conversion(prop: Dict[str, Any]) -> bool:
 def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
     """Resolve an ODCS schema property to a Spark DDL type string.
 
-    ``physicalType`` describes the *source* type and is used verbatim only when
-    it is a valid, complete Spark type whose family is compatible with (a subtype
-    of) the ``logicalType``. Otherwise the always-mappable ``logicalType`` wins.
+    Both ``physicalType`` (the source Spark DDL type) and ``logicalType`` (the
+    abstract contract type) are **required**; a property missing either raises.
+    ``physicalType`` is used verbatim only when it is a valid, complete Spark type
+    whose family is compatible with (a subtype of) the ``logicalType``. Otherwise
+    the always-mappable ``logicalType`` wins.
 
-    - **No logicalType:** use ``physicalType`` verbatim if it is valid Spark DDL,
-      else raise.
     - **Deferred conversions:** a string-physical column whose logical type needs a
       parse a bare cast can't do (JSON->object/array, or a formatted
       ``date``/``timestamp``) keeps its ``physicalType`` (a string) — the parse is
@@ -259,15 +274,14 @@ def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
       family matches; a ``STRING`` physical for a ``date``/``timestamp`` logical with
       no ``format`` becomes ``DATE``/``TIMESTAMP`` (a bare cast).
 
-    :raises Odcs2LhpError: when the type is unmappable.
+    :raises Odcs2LhpError: when ``physicalType`` or ``logicalType`` is missing, or
+        the type is otherwise unmappable (``ODCS-TYPE-001``).
     """
     logical = prop.get("logicalType")
     physical = prop.get("physicalType")
 
-    if not logical:
-        if physical and parse_spark_ddl(physical) is not None:
-            return physical
-        raise _unmappable(prop)
+    if not physical or not logical:
+        raise _missing_types(prop)
 
     # A string-encoded value needing a non-cast parse keeps its string type; the
     # conversion is deferred to a later feature.
