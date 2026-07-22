@@ -63,9 +63,14 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
   data. The **write** schema keeps every column.
 - **Load** columns are named by their ODCS `physicalName` (the source column name);
   **transform** and **write** schemas use the contract (logical) names.
+- **Type casting** only emits what a bare Spark `cast()` can do. Both `physicalType`
+  and `logicalType` are required on every property (and on nested `properties`/`items`);
+  a property missing either fails with `ODCS-TYPE-001`.
 - **Expectations** combine `required: true` -> `<col> IS NOT NULL` with each
   property's `logicalTypeOptions` predicates. `failureAction` is `fail` for a
-  `criticalDataElement` property, else `warn`.
+  `criticalDataElement` property, else `warn`. Deferred string-encoded columns emit
+  no `logicalTypeOptions` predicates (their shape/bound checks can't run against the
+  unconverted string); the `required` NOT NULL check still applies.
 - **UC tags** all live in the `write/uc_tags/<obj>_tags.yaml` file: table-level tags
   under `tags`, and per-column tags under `columns` (one `{name, tags}` entry per
   column, `tags: {}` when none). Contract-level tags form the base applied to every

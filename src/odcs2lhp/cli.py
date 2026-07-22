@@ -22,7 +22,7 @@ from .discovery import (
     find_project_root,
 )
 from .errors import Odcs2LhpError
-from .parser import OdcsParser
+from .parsers import OdcsParser
 from .translator import assert_unique_relative_paths, translate_contract
 from .writer import DEFAULT_OUTPUT_SUBDIR, reset_output_dir, write_artifacts
 

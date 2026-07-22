@@ -15,7 +15,7 @@ from typing import Any, Dict
 import jsonschema
 import yaml
 
-from .errors import Odcs2LhpError
+from ..errors import Odcs2LhpError
 
 ODCS_SCHEMA_RESOURCE = ("odcs2lhp.schemas", "odcs.schema.json")
 
