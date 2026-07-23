@@ -1,0 +1,4 @@
+type_casting:
+  b_bool_verbatim: BOOLEAN
+  b_string_cast: BOOLEAN
+  b_unusable: BOOLEAN

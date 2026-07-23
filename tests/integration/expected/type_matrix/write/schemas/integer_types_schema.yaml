@@ -1,0 +1,64 @@
+name: integer_types
+version: 1.0.0
+description: logicalType integer, all Rust widths + physical reconciliation
+columns:
+- name: i_default
+  type: BIGINT
+  nullable: true
+  comment: any/integer (no format) -> BIGINT (schema transform)
+- name: i_i8
+  type: TINYINT
+  nullable: true
+  comment: any/integer format i8 -> TINYINT
+- name: i_i16
+  type: SMALLINT
+  nullable: true
+  comment: any/integer format i16 -> SMALLINT
+- name: i_i32
+  type: INT
+  nullable: true
+  comment: any/integer format i32 -> INT
+- name: i_i64
+  type: BIGINT
+  nullable: true
+  comment: any/integer format i64 -> BIGINT
+- name: i_u8
+  type: SMALLINT
+  nullable: true
+  comment: any/integer format u8 -> SMALLINT
+- name: i_u16
+  type: INT
+  nullable: true
+  comment: any/integer format u16 -> INT
+- name: i_u32
+  type: BIGINT
+  nullable: true
+  comment: any/integer format u32 -> BIGINT
+- name: i_u64
+  type: DECIMAL(20,0)
+  nullable: true
+  comment: any/integer format u64 -> DECIMAL(20,0)
+- name: i_i128
+  type: DECIMAL(38,0)
+  nullable: true
+  comment: any/integer format i128 -> DECIMAL(38,0)
+- name: i_u128
+  type: DECIMAL(38,0)
+  nullable: true
+  comment: any/integer format u128 -> DECIMAL(38,0)
+- name: i_bigint_verbatim
+  type: BIGINT
+  nullable: true
+  comment: BIGINT/integer -> BIGINT (family matches)
+- name: i_int_verbatim
+  type: INT
+  nullable: true
+  comment: INT/integer -> INT (family matches)
+- name: i_decimal_fallback
+  type: BIGINT
+  nullable: true
+  comment: DECIMAL(8,2)/integer -> BIGINT (decimal is not an integer -> logical)
+- name: i_unusable
+  type: BIGINT
+  nullable: true
+  comment: unusable/integer -> BIGINT (logical wins)

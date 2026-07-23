@@ -121,4 +121,10 @@ def test_translate_produces_one_output_tree_per_contract(tmp_path):
     prefixes = {p.relative_to(output_dir).parts[0] for p in output_dir.rglob("*.yaml")}
 
     # 'inventory.odcs.yaml' keeps its inner '.odcs' (only the final extension is stripped).
-    assert prefixes == {"sales.contract", "inventory.odcs", "marketing", "minimal"}
+    assert prefixes == {
+        "sales.contract",
+        "inventory.odcs",
+        "marketing",
+        "minimal",
+        "type_matrix",
+    }

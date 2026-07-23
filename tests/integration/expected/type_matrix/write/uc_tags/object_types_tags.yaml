@@ -1,0 +1,22 @@
+version: '1.0'
+table: object_types
+tags: {}
+columns:
+- name: o_json_struct
+  tags: {}
+- name: o_json_variant
+  tags: {}
+- name: o_struct_shape
+  tags: {}
+- name: o_map_shape
+  tags: {}
+- name: o_map_verbatim
+  tags: {}
+- name: o_struct_verbatim
+  tags: {}
+- name: o_variant_verbatim
+  tags: {}
+- name: o_unusable_struct
+  tags: {}
+- name: o_unusable_variant
+  tags: {}

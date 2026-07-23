@@ -1,0 +1,34 @@
+version: '1.0'
+table: integer_types
+tags: {}
+columns:
+- name: i_default
+  tags: {}
+- name: i_i8
+  tags: {}
+- name: i_i16
+  tags: {}
+- name: i_i32
+  tags: {}
+- name: i_i64
+  tags: {}
+- name: i_u8
+  tags: {}
+- name: i_u16
+  tags: {}
+- name: i_u32
+  tags: {}
+- name: i_u64
+  tags: {}
+- name: i_i128
+  tags: {}
+- name: i_u128
+  tags: {}
+- name: i_bigint_verbatim
+  tags: {}
+- name: i_int_verbatim
+  tags: {}
+- name: i_decimal_fallback
+  tags: {}
+- name: i_unusable
+  tags: {}

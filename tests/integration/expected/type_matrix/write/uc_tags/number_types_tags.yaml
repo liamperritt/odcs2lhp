@@ -1,0 +1,20 @@
+version: '1.0'
+table: number_types
+tags: {}
+columns:
+- name: n_default
+  tags: {}
+- name: n_f32
+  tags: {}
+- name: n_f64
+  tags: {}
+- name: n_double_verbatim
+  tags: {}
+- name: n_float_verbatim
+  tags: {}
+- name: n_decimal_verbatim
+  tags: {}
+- name: n_int_verbatim
+  tags: {}
+- name: n_unusable
+  tags: {}

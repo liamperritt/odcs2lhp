@@ -1,0 +1,9 @@
+type_casting:
+  n_default: DOUBLE
+  n_f32: FLOAT
+  n_f64: DOUBLE
+  n_double_verbatim: DOUBLE
+  n_float_verbatim: FLOAT
+  n_decimal_verbatim: DECIMAL(8,2)
+  n_int_verbatim: INT
+  n_unusable: DOUBLE

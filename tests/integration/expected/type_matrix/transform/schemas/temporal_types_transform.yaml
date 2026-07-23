@@ -1,0 +1,8 @@
+type_casting:
+  d_date_verbatim: DATE
+  d_string_no_format: DATE
+  d_unusable: DATE
+  ts_timestamp_verbatim: TIMESTAMP
+  ts_string_no_format: TIMESTAMP
+  ts_unusable: TIMESTAMP
+  t_unusable: STRING

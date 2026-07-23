@@ -1,0 +1,16 @@
+type_casting:
+  i_default: BIGINT
+  i_i8: TINYINT
+  i_i16: SMALLINT
+  i_i32: INT
+  i_i64: BIGINT
+  i_u8: SMALLINT
+  i_u16: INT
+  i_u32: BIGINT
+  i_u64: DECIMAL(20,0)
+  i_i128: DECIMAL(38,0)
+  i_u128: DECIMAL(38,0)
+  i_bigint_verbatim: BIGINT
+  i_int_verbatim: INT
+  i_decimal_fallback: BIGINT
+  i_unusable: BIGINT

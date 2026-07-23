@@ -1,0 +1,368 @@
+version: "1.0.0"
+apiVersion: v3.0.2
+kind: DataContract
+id: 55555555-5555-5555-5555-555555555555
+status: active
+name: type-matrix-contract
+description:
+  purpose: >-
+    Exhaustive coverage of the physicalType x logicalType x logicalTypeOptions
+    combinations from docs/type-mapping.md. Each property is named for the row it
+    exercises; its description gives the expected target Spark type and the stage
+    that produces it. The four error rows (missing physicalType/logicalType,
+    unrecognised logical, array-without-items) cannot appear here because
+    translate() would raise ODCS-TYPE-001 — they are covered by unit tests.
+schema:
+  # ------------------------------------------------------------------ string --
+  - name: string_types
+    physicalType: table
+    description: logicalType string, across usable/unusable physicals + formats
+    properties:
+      - name: s_string
+        logicalType: string
+        physicalType: STRING
+        description: "STRING/string -> STRING (schema transform)"
+      - name: s_char
+        logicalType: string
+        physicalType: CHAR(3)
+        description: "CHAR(n)/string -> CHAR(3) (schema transform)"
+      - name: s_varchar
+        logicalType: string
+        physicalType: VARCHAR(20)
+        description: "VARCHAR(n)/string -> VARCHAR(20) (schema transform)"
+      - name: s_binary
+        logicalType: string
+        physicalType: BINARY
+        description: "BINARY/string -> BINARY (binary refines string)"
+      - name: s_interval
+        logicalType: string
+        physicalType: INTERVAL
+        description: "INTERVAL/string -> INTERVAL (refines string)"
+      - name: s_geography
+        logicalType: string
+        physicalType: GEOGRAPHY
+        description: "GEOGRAPHY/string -> GEOGRAPHY (refines string)"
+      - name: s_geometry
+        logicalType: string
+        physicalType: GEOMETRY
+        description: "GEOMETRY/string -> GEOMETRY (refines string)"
+      - name: s_validation
+        logicalType: string
+        physicalType: STRING
+        description: "STRING/string + validation format -> STRING (validation -> expectations only)"
+        logicalTypeOptions:
+          format: email
+          minLength: 3
+          maxLength: 320
+          pattern: "^[^@]+@[^@]+\\.[^@]+$"
+      - name: s_base64
+        logicalType: string
+        physicalType: STRING
+        description: "STRING/string + format byte -> BINARY (python transform unbase64)"
+        logicalTypeOptions:
+          format: byte
+      - name: s_unusable
+        logicalType: string
+        physicalType: NUMBER(10)
+        description: "unusable/string -> STRING (logical wins; base64 only fires for a string-family physical)"
+        logicalTypeOptions:
+          format: byte
+  # ----------------------------------------------------------------- integer --
+  - name: integer_types
+    physicalType: table
+    description: logicalType integer, all Rust widths + physical reconciliation
+    properties:
+      - name: i_default
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer (no format) -> BIGINT (schema transform)"
+      - name: i_i8
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format i8 -> TINYINT"
+        logicalTypeOptions:
+          format: i8
+      - name: i_i16
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format i16 -> SMALLINT"
+        logicalTypeOptions:
+          format: i16
+      - name: i_i32
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format i32 -> INT"
+        logicalTypeOptions:
+          format: i32
+      - name: i_i64
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format i64 -> BIGINT"
+        logicalTypeOptions:
+          format: i64
+      - name: i_u8
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format u8 -> SMALLINT"
+        logicalTypeOptions:
+          format: u8
+      - name: i_u16
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format u16 -> INT"
+        logicalTypeOptions:
+          format: u16
+      - name: i_u32
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format u32 -> BIGINT"
+        logicalTypeOptions:
+          format: u32
+      - name: i_u64
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format u64 -> DECIMAL(20,0)"
+        logicalTypeOptions:
+          format: u64
+      - name: i_i128
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format i128 -> DECIMAL(38,0)"
+        logicalTypeOptions:
+          format: i128
+      - name: i_u128
+        logicalType: integer
+        physicalType: STRING
+        description: "any/integer format u128 -> DECIMAL(38,0)"
+        logicalTypeOptions:
+          format: u128
+      - name: i_bigint_verbatim
+        logicalType: integer
+        physicalType: BIGINT
+        description: "BIGINT/integer -> BIGINT (family matches)"
+      - name: i_int_verbatim
+        logicalType: integer
+        physicalType: INT
+        description: "INT/integer -> INT (family matches)"
+      - name: i_decimal_fallback
+        logicalType: integer
+        physicalType: DECIMAL(8,2)
+        description: "DECIMAL(8,2)/integer -> BIGINT (decimal is not an integer -> logical)"
+      - name: i_unusable
+        logicalType: integer
+        physicalType: NUMBER(10)
+        description: "unusable/integer -> BIGINT (logical wins)"
+  # ------------------------------------------------------------------ number --
+  - name: number_types
+    physicalType: table
+    description: logicalType number, widths + physical reconciliation
+    properties:
+      - name: n_default
+        logicalType: number
+        physicalType: STRING
+        description: "any/number (no format) -> DOUBLE"
+      - name: n_f32
+        logicalType: number
+        physicalType: STRING
+        description: "any/number format f32 -> FLOAT"
+        logicalTypeOptions:
+          format: f32
+      - name: n_f64
+        logicalType: number
+        physicalType: STRING
+        description: "any/number format f64 -> DOUBLE"
+        logicalTypeOptions:
+          format: f64
+      - name: n_double_verbatim
+        logicalType: number
+        physicalType: DOUBLE
+        description: "DOUBLE/number -> DOUBLE (verbatim)"
+      - name: n_float_verbatim
+        logicalType: number
+        physicalType: FLOAT
+        description: "FLOAT/number -> FLOAT (verbatim)"
+      - name: n_decimal_verbatim
+        logicalType: number
+        physicalType: DECIMAL(8,2)
+        description: "DECIMAL(8,2)/number -> DECIMAL(8,2) (fractional refines number)"
+      - name: n_int_verbatim
+        logicalType: number
+        physicalType: INT
+        description: "INT/number -> INT (integer refines number)"
+      - name: n_unusable
+        logicalType: number
+        physicalType: NUMBER(10)
+        description: "unusable/number -> DOUBLE (logical wins)"
+  # ----------------------------------------------------------------- boolean --
+  - name: boolean_types
+    physicalType: table
+    description: logicalType boolean
+    properties:
+      - name: b_bool_verbatim
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: "BOOLEAN/boolean -> BOOLEAN (verbatim)"
+      - name: b_string_cast
+        logicalType: boolean
+        physicalType: STRING
+        description: "STRING/boolean -> BOOLEAN (schema transform)"
+      - name: b_unusable
+        logicalType: boolean
+        physicalType: NUMBER(10)
+        description: "unusable/boolean -> BOOLEAN (logical wins)"
+  # ----------------------------------------------------- date / timestamp / time
+  - name: temporal_types
+    physicalType: table
+    description: logicalType date/timestamp/time, format-aware conversions + fallbacks
+    properties:
+      - name: d_date_verbatim
+        logicalType: date
+        physicalType: DATE
+        description: "DATE/date -> DATE (verbatim)"
+      - name: d_string_no_format
+        logicalType: date
+        physicalType: STRING
+        description: "STRING/date (no format) -> DATE (bare cast, schema transform)"
+      - name: d_string_format
+        logicalType: date
+        physicalType: STRING
+        description: "STRING/date + format -> DATE (python transform to_date)"
+        logicalTypeOptions:
+          format: "MM/dd/yyyy"
+      - name: d_unusable
+        logicalType: date
+        physicalType: NUMBER(10)
+        description: "unusable/date -> DATE (logical wins)"
+      - name: ts_timestamp_verbatim
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+        description: "TIMESTAMP/timestamp -> TIMESTAMP (verbatim)"
+      - name: ts_string_no_format
+        logicalType: timestamp
+        physicalType: STRING
+        description: "STRING/timestamp (no format) -> TIMESTAMP (bare cast)"
+      - name: ts_string_format
+        logicalType: timestamp
+        physicalType: STRING
+        description: "STRING/timestamp + format -> TIMESTAMP (python transform to_timestamp)"
+        logicalTypeOptions:
+          format: "yyyy-MM-dd'T'HH:mm:ss"
+      - name: ts_string_tz
+        logicalType: timestamp
+        physicalType: STRING
+        description: "STRING/timestamp + format + timezone:false + defaultTimezone -> TIMESTAMP (to_utc_timestamp)"
+        logicalTypeOptions:
+          format: "yyyy-MM-dd HH:mm:ss"
+          timezone: false
+          defaultTimezone: "America/New_York"
+      - name: ts_unusable
+        logicalType: timestamp
+        physicalType: NUMBER(10)
+        description: "unusable/timestamp -> TIMESTAMP (logical wins)"
+      - name: t_string
+        logicalType: time
+        physicalType: STRING
+        description: "STRING/time -> STRING (Spark has no TIME type; string refines time)"
+        logicalTypeOptions:
+          format: "HH:mm:ss"
+      - name: t_unusable
+        logicalType: time
+        physicalType: NUMBER(10)
+        description: "unusable/time -> STRING (logical wins)"
+  # ------------------------------------------------------------------ object --
+  - name: object_types
+    physicalType: table
+    description: logicalType object, JSON-string parse + structured physicals + fallbacks
+    properties:
+      - name: o_json_struct
+        logicalType: object
+        physicalType: STRING
+        description: "STRING/object + properties -> STRUCT<...> (python transform from_json)"
+        properties:
+          - name: seg
+            logicalType: string
+            physicalType: STRING
+          - name: sz
+            logicalType: integer
+            physicalType: INT
+      - name: o_json_variant
+        logicalType: object
+        physicalType: STRING
+        description: "STRING/object no properties -> VARIANT (python transform parse_json)"
+      - name: o_struct_shape
+        logicalType: object
+        physicalType: STRUCT<a:STRING>
+        description: "STRUCT<a:STRING>/object + properties[a:integer] -> STRUCT<a:BIGINT> (logical shape wins)"
+        properties:
+          - name: a
+            logicalType: integer
+            physicalType: STRING
+      - name: o_map_shape
+        logicalType: object
+        physicalType: MAP<STRING,STRING>
+        description: "MAP/object + properties[a:integer] -> STRUCT<a:BIGINT> (logical shape wins)"
+        properties:
+          - name: a
+            logicalType: integer
+            physicalType: STRING
+      - name: o_map_verbatim
+        logicalType: object
+        physicalType: MAP<STRING,STRING>
+        description: "MAP/object no properties -> MAP<STRING,STRING> (verbatim)"
+      - name: o_struct_verbatim
+        logicalType: object
+        physicalType: STRUCT<x:INT>
+        description: "STRUCT/object no properties -> STRUCT<x:INT> (verbatim)"
+      - name: o_variant_verbatim
+        logicalType: object
+        physicalType: VARIANT
+        description: "VARIANT/object no properties -> VARIANT (verbatim)"
+      - name: o_unusable_struct
+        logicalType: object
+        physicalType: NUMBER(10)
+        description: "unusable/object + properties -> STRUCT<...> (logical shape wins)"
+        properties:
+          - name: a
+            logicalType: integer
+            physicalType: STRING
+      - name: o_unusable_variant
+        logicalType: object
+        physicalType: NUMBER(10)
+        description: "unusable/object no properties -> VARIANT (logical wins)"
+  # ------------------------------------------------------------------- array --
+  - name: array_types
+    physicalType: table
+    description: logicalType array, JSON-string parse + structured physicals + fallbacks
+    properties:
+      - name: a_json
+        logicalType: array
+        physicalType: STRING
+        description: "STRING/array + items -> ARRAY<...> (python transform from_json)"
+        items:
+          logicalType: string
+          physicalType: STRING
+      - name: a_items_win
+        logicalType: array
+        physicalType: ARRAY<INT>
+        description: "ARRAY<INT>/array + items:string -> ARRAY<STRING> (logical items win)"
+        items:
+          logicalType: string
+          physicalType: STRING
+      - name: a_incomplete
+        logicalType: array
+        physicalType: ARRAY
+        description: "ARRAY (incomplete)/array + items:string -> ARRAY<STRING> (logical items win)"
+        items:
+          logicalType: string
+          physicalType: STRING
+      - name: a_verbatim
+        logicalType: array
+        physicalType: ARRAY<INT>
+        description: "ARRAY<INT>/array no items -> ARRAY<INT> (verbatim)"
+      - name: a_unusable
+        logicalType: array
+        physicalType: NUMBER(10)
+        description: "unusable/array + items -> ARRAY<...> (logical items win)"
+        items:
+          logicalType: string
+          physicalType: STRING
