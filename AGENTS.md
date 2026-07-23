@@ -19,7 +19,7 @@ extension:
 | Sidecar | Path | Purpose |
 |---|---|---|
 | Load schema | `<prefix>/load/schemas/<obj>_schema.yaml` | cloudFiles read schema; columns named by `physicalName`; excludes operational-metadata + SCD2 columns; converted columns keep raw `STRING` type |
-| Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `column_mapping` (renames) + `type_casting` for a `transform_type: schema` action; converted columns dropped from `type_casting` |
+| Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `column_mapping` (renames) + `type_casting` for a `transform_type: schema` action; every non-OM/SCD2 column (incl. Python-converted ones) is cast to its target type so a `strict` transform keeps it |
 | Type-convert module | `<prefix>/transform/python/<obj>_convert.py` | rendered `transform_type: python` module (`convert_types`) applying `to_date`/`to_timestamp`/`to_utc_timestamp`/`from_json`/`parse_json`/`unbase64` to string-encoded columns; passthrough when none |
 | Expectations | `<prefix>/transform/expectations/<obj>_expectations.yaml` | `required` → NOT NULL plus `logicalTypeOptions` predicates |
 | Write schema | `<prefix>/write/schemas/<obj>_schema.yaml` | table schema, all columns, logical names, `primary_key` (no tags); converted columns carry parsed target type |

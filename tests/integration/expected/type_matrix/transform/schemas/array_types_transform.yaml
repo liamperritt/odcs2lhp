@@ -1,4 +1,5 @@
 type_casting:
+  a_json: ARRAY<STRING>
   a_items_win: ARRAY<STRING>
   a_incomplete: ARRAY<STRING>
   a_verbatim: ARRAY<INT>

@@ -74,16 +74,15 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
   for a props-less `object` (→ `VARIANT`), and `unbase64` for a `string` with
   `format: byte`/`binary` (→ `BINARY`). The module is always written; with no such
   columns it is a passthrough (`return df`). A converted column keeps its raw
-  `STRING` type in the **load** schema (the parse consumes a string), is dropped from
-  the **transform** schema's `type_casting` (this module owns its typing), and
-  carries its parsed type in the **write** schema. The module is meant to run on the
-  raw load *before* the schema transform renames columns, so it references each
-  column by its source `physicalName` (see the example order below).
+  `STRING` type in the **load** schema (the parse consumes a string) and carries its
+  parsed type in both the **transform** and **write** schemas — the schema transform
+  casts every non-OM/SCD2 column (converted ones included) to its target so a
+  `strict` transform keeps it. The module is meant to run on the raw load *before*
+  the schema transform renames columns, so it references each column by its source
+  `physicalName` (see the example order below).
 - **Expectations** combine `required: true` -> `<col> IS NOT NULL` with each
   property's `logicalTypeOptions` predicates. `failureAction` is `fail` for a
-  `criticalDataElement` property, else `warn`. Deferred string-encoded columns emit
-  no `logicalTypeOptions` predicates (their shape/bound checks can't run against the
-  unconverted string); the `required` NOT NULL check still applies.
+  `criticalDataElement` property, else `warn`.
 - **UC tags** all live in the `write/uc_tags/<obj>_tags.yaml` file: table-level tags
   under `tags`, and per-column tags under `columns` (one `{name, tags}` entry per
   column, `tags: {}` when none). Contract-level tags form the base applied to every

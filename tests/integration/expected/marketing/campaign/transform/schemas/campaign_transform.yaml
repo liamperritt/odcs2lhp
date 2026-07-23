@@ -4,3 +4,10 @@ type_casting:
   campaign_id: BIGINT
   campaign_name: STRING
   budget: DECIMAL(12,2)
+  launch_date: DATE
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+  audience: STRUCT<segment:STRING,size:INT>
+  channels: ARRAY<STRING>
+  raw_payload: VARIANT
+  tracking_pixel: BINARY

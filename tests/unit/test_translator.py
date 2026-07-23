@@ -317,7 +317,9 @@ def test_type_convert_module_omits_operational_metadata_and_scd2_columns():
 # --- converted-column typing across sidecars --------------------------------
 
 
-def test_transform_schema_excludes_converted_column_from_type_casting():
+def test_transform_schema_casts_converted_column_to_its_target_type():
+    # Converted columns are still listed in type_casting (with their parsed target
+    # type) so a strict schema transform doesn't drop them.
     artifacts = _convert_contract(
         {
             "logicalType": "object",
@@ -327,7 +329,22 @@ def test_transform_schema_excludes_converted_column_from_type_casting():
     )
 
     schema = _artifact(artifacts, "p/transform/schemas/t_transform.yaml")
-    assert "c" not in schema["type_casting"]
+    assert schema["type_casting"]["c"] == "STRUCT<city:STRING>"
+
+
+def test_transform_schema_casts_base64_converted_column_to_binary():
+    # base64 string->BINARY: type_casting must use the converted target (BINARY),
+    # matching the write schema — not the raw STRING from odcs_type_to_spark.
+    artifacts = _convert_contract(
+        {
+            "logicalType": "string",
+            "physicalType": "STRING",
+            "logicalTypeOptions": {"format": "byte"},
+        }
+    )
+
+    schema = _artifact(artifacts, "p/transform/schemas/t_transform.yaml")
+    assert schema["type_casting"]["c"] == "BINARY"
 
 
 def test_load_schema_types_converted_column_as_string():

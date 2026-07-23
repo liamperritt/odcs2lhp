@@ -29,11 +29,13 @@ keeps every column (they are part of the written table).
 
 A converted column's type is split across the sidecars: the **load** schema keeps
 its raw string type (``from_json``/``unbase64`` consume a string), the type-convert
-module produces the parsed value, and the **write** schema records the final parsed
-type. Such columns are dropped from the transform schema's ``type_casting`` so a
-plain cast never fights the runtime parse. The type-convert module is meant to run
-on the raw load (before the schema transform renames columns), so it references
-each column by its source ``physicalName``.
+module produces the parsed value, and both the **transform** and **write** schemas
+record the final parsed type. The transform schema casts *every* non-OM/SCD2 column
+(converted ones included) to its target so a ``strict``-enforcement schema transform
+keeps it; the cast enforces the type the convert module already produced rather than
+fighting it. The type-convert module is meant to run on the raw load (before the
+schema transform renames columns), so it references each column by its source
+``physicalName``.
 """
 
 from __future__ import annotations
@@ -234,11 +236,16 @@ def _transform_schema(
     """Rename + cast mapping for a ``transform_type: schema`` action.
 
     ``column_mapping`` renames a source (physical) name to the contract name only
-    when they differ; ``type_casting`` casts every kept column to its contract
-    type. OM/SCD2 columns are skipped (they flow through untouched). Columns the
-    type-convert module handles are still renamed but omitted from
-    ``type_casting`` — that module owns their (non-cast) typing, so a plain cast
-    here would fight the runtime parse.
+    when they differ; ``type_casting`` casts **every** kept column to its contract
+    (target) type. OM/SCD2 columns are skipped (they flow through untouched).
+
+    Every kept column — including one already converted by the type-convert Python
+    transform — is listed in ``type_casting`` with its final target type. A schema
+    transform may run in ``strict`` enforcement mode, which drops any column not
+    named here; listing them all keeps them in the DataFrame. A converted column is
+    cast to the type the Python transform produced (e.g. ``BINARY`` for a base64
+    string, ``STRUCT``/``DATE`` for a parsed value), so the cast enforces — never
+    fights — the converted type.
     """
     column_mapping: Dict[str, str] = {}
     type_casting: Dict[str, str] = {}
@@ -249,8 +256,10 @@ def _transform_schema(
         source_name = prop.get("physicalName")
         if source_name and source_name != name:
             column_mapping[source_name] = name
-        if string_conversion(prop) is None:
-            type_casting[name] = odcs_type_to_spark(prop)
+        conversion = string_conversion(prop)
+        type_casting[name] = (
+            conversion.target_type if conversion else odcs_type_to_spark(prop)
+        )
 
     schema: Dict[str, Any] = {}
     if column_mapping:

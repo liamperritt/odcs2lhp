@@ -7,4 +7,5 @@ type_casting:
   s_geography: GEOGRAPHY
   s_geometry: GEOMETRY
   s_validation: STRING
+  s_base64: BINARY
   s_unusable: STRING
