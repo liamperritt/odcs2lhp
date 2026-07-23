@@ -50,24 +50,29 @@ def _one_type(prop: Dict[str, Any]) -> str:
 
 
 def test_type_mapping_uses_physical_type_verbatim_when_present():
-    cols = _write_columns([{"name": "c", "physicalType": "DECIMAL(9,3)"}])
+    cols = _write_columns(
+        [{"name": "c", "logicalType": "number", "physicalType": "DECIMAL(9,3)"}]
+    )
 
     assert cols["c"]["type"] == "DECIMAL(9,3)"
 
 
 # --- logicalType inference --------------------------------------------------
+# Both physicalType and logicalType are required; these give a neutral physical
+# and exercise the cases where the logical definition drives the target.
 
 
 def test_type_mapping_maps_integer_i32_to_int():
     cols = _write_columns(
-        [{"name": "c", "logicalType": "integer", "logicalTypeOptions": {"format": "i32"}}]
+        [{"name": "c", "logicalType": "integer", "physicalType": "BIGINT",
+          "logicalTypeOptions": {"format": "i32"}}]
     )
 
     assert cols["c"]["type"] == "INT"
 
 
 def test_type_mapping_maps_integer_to_bigint_by_default():
-    cols = _write_columns([{"name": "c", "logicalType": "integer"}])
+    cols = _write_columns([{"name": "c", "logicalType": "integer", "physicalType": "STRING"}])
 
     assert cols["c"]["type"] == "BIGINT"
 
@@ -89,14 +94,18 @@ def test_type_mapping_maps_integer_to_bigint_by_default():
 )
 def test_type_mapping_maps_integer_format_to_spark_width(fmt, expected):
     assert (
-        _one_type({"logicalType": "integer", "logicalTypeOptions": {"format": fmt}})
+        _one_type(
+            {"logicalType": "integer", "physicalType": "BIGINT",
+             "logicalTypeOptions": {"format": fmt}}
+        )
         == expected
     )
 
 
 def test_type_mapping_maps_number_f32_to_float():
     cols = _write_columns(
-        [{"name": "c", "logicalType": "number", "logicalTypeOptions": {"format": "f32"}}]
+        [{"name": "c", "logicalType": "number", "physicalType": "DOUBLE",
+          "logicalTypeOptions": {"format": "f32"}}]
     )
 
     assert cols["c"]["type"] == "FLOAT"
@@ -104,13 +113,16 @@ def test_type_mapping_maps_number_f32_to_float():
 
 def test_type_mapping_maps_number_f64_to_double():
     assert (
-        _one_type({"logicalType": "number", "logicalTypeOptions": {"format": "f64"}})
+        _one_type(
+            {"logicalType": "number", "physicalType": "DOUBLE",
+             "logicalTypeOptions": {"format": "f64"}}
+        )
         == "DOUBLE"
     )
 
 
 def test_type_mapping_maps_number_to_double_by_default():
-    cols = _write_columns([{"name": "c", "logicalType": "number"}])
+    cols = _write_columns([{"name": "c", "logicalType": "number", "physicalType": "STRING"}])
 
     assert cols["c"]["type"] == "DOUBLE"
 
@@ -151,9 +163,10 @@ def test_type_mapping_maps_object_to_struct_recursively():
             {
                 "name": "addr",
                 "logicalType": "object",
+                "physicalType": "STRUCT<street:STRING,zip:BIGINT>",
                 "properties": [
-                    {"name": "street", "logicalType": "string"},
-                    {"name": "zip", "logicalType": "integer"},
+                    {"name": "street", "logicalType": "string", "physicalType": "STRING"},
+                    {"name": "zip", "logicalType": "integer", "physicalType": "BIGINT"},
                 ],
             }
         ]
@@ -165,11 +178,11 @@ def test_type_mapping_maps_object_to_struct_recursively():
 def test_type_mapping_maps_simple_logical_types():
     cols = _write_columns(
         [
-            {"name": "s", "logicalType": "string"},
-            {"name": "b", "logicalType": "boolean"},
-            {"name": "d", "logicalType": "date"},
-            {"name": "ts", "logicalType": "timestamp"},
-            {"name": "t", "logicalType": "time"},
+            {"name": "s", "logicalType": "string", "physicalType": "STRING"},
+            {"name": "b", "logicalType": "boolean", "physicalType": "BOOLEAN"},
+            {"name": "d", "logicalType": "date", "physicalType": "DATE"},
+            {"name": "ts", "logicalType": "timestamp", "physicalType": "TIMESTAMP"},
+            {"name": "t", "logicalType": "time", "physicalType": "STRING"},
         ]
     )
 
@@ -197,6 +210,18 @@ def test_type_mapping_uses_physical_binary_when_logical_is_string():
     assert _one_type({"logicalType": "string", "physicalType": "BINARY"}) == "BINARY"
 
 
+def test_type_mapping_uses_physical_interval_when_logical_is_string():
+    assert _one_type({"logicalType": "string", "physicalType": "INTERVAL"}) == "INTERVAL"
+
+
+def test_type_mapping_uses_physical_geography_when_logical_is_string():
+    assert _one_type({"logicalType": "string", "physicalType": "GEOGRAPHY"}) == "GEOGRAPHY"
+
+
+def test_type_mapping_uses_physical_geometry_when_logical_is_string():
+    assert _one_type({"logicalType": "string", "physicalType": "GEOMETRY"}) == "GEOMETRY"
+
+
 def test_type_mapping_uses_physical_decimal_when_logical_is_number():
     assert (
         _one_type({"logicalType": "number", "physicalType": "DECIMAL(8,2)"})
@@ -216,21 +241,35 @@ def test_type_mapping_falls_back_to_logical_when_physical_family_mismatches():
     assert _one_type({"logicalType": "timestamp", "physicalType": "BINARY"}) == "TIMESTAMP"
 
 
-def test_type_mapping_uses_physical_verbatim_when_logical_absent_and_ddl_valid():
-    assert _one_type({"physicalType": "BINARY"}) == "BINARY"
-
-
-def test_type_mapping_errors_when_logical_absent_and_physical_unparseable():
+def test_type_mapping_errors_when_logical_type_absent():
     with pytest.raises(Odcs2LhpError) as exc_info:
-        _one_type({"physicalType": "NUMBER(10)"})
+        _one_type({"physicalType": "BINARY"})
 
     assert exc_info.value.code == "ODCS-TYPE-001"
 
 
-# --- string -> temporal format guard ----------------------------------------
+def test_type_mapping_errors_when_physical_type_absent():
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        _one_type({"logicalType": "integer"})
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
 
 
-def test_type_mapping_casts_string_to_timestamp_when_format_is_spark_default():
+def test_type_mapping_errors_when_both_types_absent():
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        _one_type({})
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
+
+
+# --- string -> temporal (resolved/write type) -------------------------------
+# ``_one_type`` returns the write-schema (final) type. A string-physical temporal
+# resolves to its parsed target regardless of format: with a format the runtime
+# type-convert module parses it (see test_conversions); without a format a bare
+# cast handles it. Either way the final column type is DATE/TIMESTAMP.
+
+
+def test_type_mapping_resolves_string_to_timestamp_when_format_present():
     assert (
         _one_type(
             {
@@ -243,7 +282,7 @@ def test_type_mapping_casts_string_to_timestamp_when_format_is_spark_default():
     )
 
 
-def test_type_mapping_casts_string_to_date_when_format_is_spark_default():
+def test_type_mapping_resolves_string_to_date_when_format_present():
     assert (
         _one_type(
             {
@@ -256,9 +295,7 @@ def test_type_mapping_casts_string_to_date_when_format_is_spark_default():
     )
 
 
-def test_write_schema_types_string_timestamp_as_timestamp_when_format_is_non_default():
-    # A non-default format can't be a bare cast, so the type-convert module parses
-    # it (to_timestamp) and the write schema records the parsed TIMESTAMP type.
+def test_type_mapping_resolves_string_to_timestamp_when_format_is_non_default():
     assert (
         _one_type(
             {
@@ -271,16 +308,21 @@ def test_write_schema_types_string_timestamp_as_timestamp_when_format_is_non_def
     )
 
 
-def test_type_mapping_keeps_string_when_temporal_has_no_format():
-    # No format means nothing to parse against: the column stays a STRING (no
-    # conversion), so the write schema keeps STRING too.
+def test_type_mapping_casts_string_to_timestamp_when_no_format():
     assert (
-        _one_type({"logicalType": "timestamp", "physicalType": "STRING"}) == "STRING"
+        _one_type({"logicalType": "timestamp", "physicalType": "STRING"}) == "TIMESTAMP"
     )
 
 
-def test_type_mapping_uses_timestamp_when_logical_temporal_and_no_physical():
-    assert _one_type({"logicalType": "timestamp"}) == "TIMESTAMP"
+def test_type_mapping_casts_string_to_date_when_no_format():
+    assert _one_type({"logicalType": "date", "physicalType": "STRING"}) == "DATE"
+
+
+def test_type_mapping_errors_when_temporal_logical_and_no_physical():
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        _one_type({"logicalType": "timestamp"})
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
 
 
 # --- complex type reconciliation --------------------------------------------
@@ -292,7 +334,7 @@ def test_type_mapping_builds_struct_from_logical_props_when_object_has_propertie
         {
             "logicalType": "object",
             "physicalType": "STRUCT<a:STRING>",
-            "properties": [{"name": "a", "logicalType": "integer"}],
+            "properties": [{"name": "a", "logicalType": "integer", "physicalType": "STRING"}],
         }
     )
 
@@ -304,7 +346,7 @@ def test_type_mapping_builds_struct_from_logical_props_when_physical_is_map():
         {
             "logicalType": "object",
             "physicalType": "MAP<STRING,STRING>",
-            "properties": [{"name": "a", "logicalType": "integer"}],
+            "properties": [{"name": "a", "logicalType": "integer", "physicalType": "STRING"}],
         }
     )
 
@@ -322,8 +364,11 @@ def test_type_mapping_uses_physical_variant_when_object_has_no_properties():
     assert _one_type({"logicalType": "object", "physicalType": "VARIANT"}) == "VARIANT"
 
 
-def test_type_mapping_defaults_object_to_variant_when_no_props_and_no_physical():
-    assert _one_type({"logicalType": "object"}) == "VARIANT"
+def test_type_mapping_errors_when_object_has_no_properties_and_no_physical():
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        _one_type({"logicalType": "object"})
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
 
 
 def test_type_mapping_uses_logical_items_when_array_defines_items():
@@ -331,7 +376,7 @@ def test_type_mapping_uses_logical_items_when_array_defines_items():
         {
             "logicalType": "array",
             "physicalType": "ARRAY<INT>",
-            "items": {"logicalType": "string"},
+            "items": {"logicalType": "string", "physicalType": "STRING"},
         }
     )
 
@@ -343,7 +388,7 @@ def test_type_mapping_uses_logical_items_when_array_physical_is_incomplete():
         {
             "logicalType": "array",
             "physicalType": "ARRAY",
-            "items": {"logicalType": "string"},
+            "items": {"logicalType": "string", "physicalType": "STRING"},
         }
     )
 
@@ -360,6 +405,22 @@ def test_type_mapping_uses_physical_array_when_no_logical_items():
 def test_type_mapping_errors_when_array_has_no_items_and_no_physical():
     with pytest.raises(Odcs2LhpError) as exc_info:
         _one_type({"logicalType": "array"})
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
+
+
+def test_type_mapping_errors_when_array_has_no_items_and_incompatible_physical():
+    # Physical present (so the missing-types guard passes) but not an array and no
+    # items to build from: unmappable.
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        _one_type({"logicalType": "array", "physicalType": "BIGINT"})
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
+
+
+def test_type_mapping_errors_when_logical_type_unrecognised():
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        _one_type({"logicalType": "mystery", "physicalType": "BIGINT"})
 
     assert exc_info.value.code == "ODCS-TYPE-001"
 

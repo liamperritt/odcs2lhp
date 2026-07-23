@@ -97,7 +97,7 @@ def test_string_conversion_returns_from_json_when_string_object_has_properties()
         {
             "logicalType": "object",
             "physicalType": "STRING",
-            "properties": [{"name": "city", "logicalType": "string"}],
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
         }
     )
 
@@ -111,7 +111,7 @@ def test_string_conversion_returns_from_json_when_string_array_has_items():
         {
             "logicalType": "array",
             "physicalType": "STRING",
-            "items": {"logicalType": "string"},
+            "items": {"logicalType": "string", "physicalType": "STRING"},
         }
     )
 

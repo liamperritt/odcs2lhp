@@ -64,12 +64,14 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
   data. The **write** schema keeps every column.
 - **Load** columns are named by their ODCS `physicalName` (the source column name);
   **transform** and **write** schemas use the contract (logical) names.
-- **Type-convert module** parses string-encoded values that a plain cast can't. For a
-  column whose `physicalType` is a string, it emits (by `logicalType` +
-  `logicalTypeOptions`): `to_date`/`to_timestamp` when a temporal `format` is given
-  (`to_utc_timestamp(...)` when `timezone: false` + `defaultTimezone`), `from_json`
-  for an `object` with `properties` or an `array` with `items`, `parse_json` for a
-  props-less `object` (→ `VARIANT`), and `unbase64` for a `string` with
+- **Type mapping** requires both `physicalType` and `logicalType` on every property
+  (and on nested `properties`/`items`);  property missing either fails with
+  `ODCS-TYPE-001`. The complex conversion Python module parses string-encoded values
+  that a plain cast can't. For a column whose `physicalType` is a string, it emits
+  (by `logicalType` + `logicalTypeOptions`): `to_date`/`to_timestamp` when a temporal
+  `format` is given (`to_utc_timestamp(...)` when `timezone: false` + `defaultTimezone`),
+  `from_json` for an `object` with `properties` or an `array` with `items`, `parse_json`
+  for a props-less `object` (→ `VARIANT`), and `unbase64` for a `string` with
   `format: byte`/`binary` (→ `BINARY`). The module is always written; with no such
   columns it is a passthrough (`return df`). A converted column keeps its raw
   `STRING` type in the **load** schema (the parse consumes a string), is dropped from
@@ -79,7 +81,9 @@ For example, `marketing/sales.contract/write/schemas/customer_schema.yaml`.
   column by its source `physicalName` (see the example order below).
 - **Expectations** combine `required: true` -> `<col> IS NOT NULL` with each
   property's `logicalTypeOptions` predicates. `failureAction` is `fail` for a
-  `criticalDataElement` property, else `warn`.
+  `criticalDataElement` property, else `warn`. Deferred string-encoded columns emit
+  no `logicalTypeOptions` predicates (their shape/bound checks can't run against the
+  unconverted string); the `required` NOT NULL check still applies.
 - **UC tags** all live in the `write/uc_tags/<obj>_tags.yaml` file: table-level tags
   under `tags`, and per-column tags under `columns` (one `{name, tags}` entry per
   column, `tags: {}` when none). Contract-level tags form the base applied to every

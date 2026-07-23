@@ -113,7 +113,8 @@ def translate_contract(
     :param exclude: column names to omit from the load + transform schemas
         (operational-metadata + SCD2 columns).
     :raises Odcs2LhpError: on a duplicate schema-object name (``ODCS-OBJ-001``), an
-        unsafe path segment (``ODCS-PATH-001``), a column without ``physicalType``
+        unsafe path segment (``ODCS-PATH-001``), a column missing ``physicalType`` or
+        ``logicalType`` — both are required — or otherwise unmappable
         (``ODCS-TYPE-001``), or colliding artifact paths (``ODCS-PATH-002``).
     """
     version = contract.get("version")

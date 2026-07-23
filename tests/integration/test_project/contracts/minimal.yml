@@ -9,4 +9,5 @@ schema:
     physicalType: table
     properties:
       - name: id
+        logicalType: integer
         physicalType: BIGINT

@@ -65,7 +65,7 @@ def test_translate_contract_nests_output_under_prefix(sales):
 def test_translate_contract_prefix_preserves_subdirectories():
     contract = {
         "version": "1.0",
-        "schema": [{"name": "customer", "properties": [{"name": "c", "physicalType": "STRING"}]}],
+        "schema": [{"name": "customer", "properties": [{"name": "c", "logicalType": "string", "physicalType": "STRING"}]}],
     }
 
     artifacts = translate_contract(contract, prefix="marketing/sales.contract")
@@ -194,7 +194,7 @@ def test_write_schema_marks_primary_key_column_not_nullable_even_without_require
             {
                 "name": "t",
                 "properties": [
-                    {"name": "pk", "physicalType": "BIGINT", "primaryKey": True},
+                    {"name": "pk", "logicalType": "integer", "physicalType": "BIGINT", "primaryKey": True},
                 ],
             }
         ],
@@ -247,7 +247,7 @@ def test_type_convert_module_parses_string_object_with_from_json():
         {
             "logicalType": "object",
             "physicalType": "STRING",
-            "properties": [{"name": "city", "logicalType": "string"}],
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
         }
     )
 
@@ -322,7 +322,7 @@ def test_transform_schema_excludes_converted_column_from_type_casting():
         {
             "logicalType": "object",
             "physicalType": "STRING",
-            "properties": [{"name": "city", "logicalType": "string"}],
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
         }
     )
 
@@ -335,7 +335,7 @@ def test_load_schema_types_converted_column_as_string():
         {
             "logicalType": "object",
             "physicalType": "STRING",
-            "properties": [{"name": "city", "logicalType": "string"}],
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
         }
     )
 
@@ -419,7 +419,7 @@ def test_tags_file_applies_contract_tags_as_base_when_object_has_none():
     contract = {
         "version": "1.0",
         "tags": ["layer:bronze", "domain:sales"],
-        "schema": [{"name": "customer", "properties": [{"name": "c", "physicalType": "STRING"}]}],
+        "schema": [{"name": "customer", "properties": [{"name": "c", "logicalType": "string", "physicalType": "STRING"}]}],
     }
 
     artifacts = translate_contract(contract, prefix="c")
@@ -436,7 +436,7 @@ def test_tags_file_object_tag_overrides_contract_tag_when_keys_collide():
             {
                 "name": "customer",
                 "tags": ["layer:silver", "pii"],
-                "properties": [{"name": "c", "physicalType": "STRING"}],
+                "properties": [{"name": "c", "logicalType": "string", "physicalType": "STRING"}],
             }
         ],
     }
@@ -451,7 +451,7 @@ def test_tags_file_object_tag_overrides_contract_tag_when_keys_collide():
 def test_tags_file_is_empty_when_neither_contract_nor_object_declares_tags():
     contract = {
         "version": "1.0",
-        "schema": [{"name": "customer", "properties": [{"name": "c", "physicalType": "STRING"}]}],
+        "schema": [{"name": "customer", "properties": [{"name": "c", "logicalType": "string", "physicalType": "STRING"}]}],
     }
 
     artifacts = translate_contract(contract, prefix="c")
@@ -552,7 +552,7 @@ def _one_object_contract():
     return {
         "version": "1.0",
         "schema": [
-            {"name": "t", "properties": [{"name": "c", "physicalType": "STRING"}]}
+            {"name": "t", "properties": [{"name": "c", "logicalType": "string", "physicalType": "STRING"}]}
         ],
     }
 
@@ -598,11 +598,25 @@ def test_expectations_deduplicate_colliding_names_when_columns_sanitize_alike():
 # --- errors -----------------------------------------------------------------
 
 
-def test_translate_contract_raises_when_column_type_unmappable():
+def test_translate_contract_raises_when_column_missing_physical_type():
     contract = {
         "version": "1.0",
         "schema": [
-            {"name": "t", "properties": [{"name": "c", "logicalType": "mystery"}]}
+            {"name": "t", "properties": [{"name": "c", "logicalType": "integer"}]}
+        ],
+    }
+
+    with pytest.raises(Odcs2LhpError) as exc_info:
+        translate_contract(contract, prefix="t")
+
+    assert exc_info.value.code == "ODCS-TYPE-001"
+
+
+def test_translate_contract_raises_when_column_missing_logical_type():
+    contract = {
+        "version": "1.0",
+        "schema": [
+            {"name": "t", "properties": [{"name": "c", "physicalType": "BIGINT"}]}
         ],
     }
 
@@ -637,8 +651,8 @@ def test_translate_contract_raises_when_object_name_duplicated():
     contract = {
         "version": "1.0",
         "schema": [
-            {"name": "dup", "properties": [{"name": "a", "physicalType": "STRING"}]},
-            {"name": "dup", "properties": [{"name": "b", "physicalType": "INT"}]},
+            {"name": "dup", "properties": [{"name": "a", "logicalType": "string", "physicalType": "STRING"}]},
+            {"name": "dup", "properties": [{"name": "b", "logicalType": "integer", "physicalType": "INT"}]},
         ],
     }
 
@@ -652,8 +666,8 @@ def test_translate_contract_raises_when_object_names_slug_alike():
     contract = {
         "version": "1.0",
         "schema": [
-            {"name": "a b", "properties": [{"name": "x", "physicalType": "STRING"}]},
-            {"name": "a_b", "properties": [{"name": "y", "physicalType": "INT"}]},
+            {"name": "a b", "properties": [{"name": "x", "logicalType": "string", "physicalType": "STRING"}]},
+            {"name": "a_b", "properties": [{"name": "y", "logicalType": "integer", "physicalType": "INT"}]},
         ],
     }
 
