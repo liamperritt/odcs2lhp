@@ -1,0 +1,36 @@
+name: number_types
+version: 1.0.0
+description: logicalType number, widths + physical reconciliation
+columns:
+- name: n_default
+  type: DOUBLE
+  nullable: true
+  comment: any/number (no format) -> DOUBLE
+- name: n_f32
+  type: FLOAT
+  nullable: true
+  comment: any/number format f32 -> FLOAT
+- name: n_f64
+  type: DOUBLE
+  nullable: true
+  comment: any/number format f64 -> DOUBLE
+- name: n_double_verbatim
+  type: DOUBLE
+  nullable: true
+  comment: DOUBLE/number -> DOUBLE (verbatim)
+- name: n_float_verbatim
+  type: FLOAT
+  nullable: true
+  comment: FLOAT/number -> FLOAT (verbatim)
+- name: n_decimal_verbatim
+  type: DECIMAL(8,2)
+  nullable: true
+  comment: DECIMAL(8,2)/number -> DECIMAL(8,2) (fractional refines number)
+- name: n_int_verbatim
+  type: INT
+  nullable: true
+  comment: INT/number -> INT (integer refines number)
+- name: n_unusable
+  type: DOUBLE
+  nullable: true
+  comment: unusable/number -> DOUBLE (logical wins)

@@ -29,8 +29,10 @@ def reset_output_dir(output_dir: Path) -> None:
 def write_artifacts(artifacts: Iterable[Artifact], output_dir: Path) -> List[Path]:
     """Write each artifact under ``output_dir``, creating parent dirs as needed.
 
-    Uses block-style YAML with ``sort_keys=False`` (LHP convention) so authored
-    key order is preserved. Existing files are overwritten (idempotent re-runs).
+    An artifact with ``text`` set (e.g. a generated ``.py`` transform module) is
+    written verbatim; otherwise its ``data`` is emitted as block-style YAML with
+    ``sort_keys=False`` (LHP convention) so authored key order is preserved.
+    Existing files are overwritten (idempotent re-runs).
 
     :returns: the list of written file paths, in the order given.
     """
@@ -39,9 +41,12 @@ def write_artifacts(artifacts: Iterable[Artifact], output_dir: Path) -> List[Pat
     for artifact in artifacts:
         target = output_dir / artifact.relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            yaml.safe_dump(artifact.data, default_flow_style=False, sort_keys=False),
-            encoding="utf-8",
-        )
+        if artifact.text is not None:
+            content = artifact.text
+        else:
+            content = yaml.safe_dump(
+                artifact.data, default_flow_style=False, sort_keys=False
+            )
+        target.write_text(content, encoding="utf-8")
         written.append(target)
     return written

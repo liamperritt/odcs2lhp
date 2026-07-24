@@ -1,0 +1,11 @@
+type_casting:
+  s_string: STRING
+  s_char: CHAR(3)
+  s_varchar: VARCHAR(20)
+  s_binary: BINARY
+  s_interval: INTERVAL
+  s_geography: GEOGRAPHY
+  s_geometry: GEOMETRY
+  s_validation: STRING
+  s_base64: BINARY
+  s_unusable: STRING

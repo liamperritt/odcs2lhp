@@ -1,0 +1,14 @@
+version: '1.0'
+table: array_types
+tags: {}
+columns:
+- name: a_json
+  tags: {}
+- name: a_items_win
+  tags: {}
+- name: a_incomplete
+  tags: {}
+- name: a_verbatim
+  tags: {}
+- name: a_unusable
+  tags: {}

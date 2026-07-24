@@ -46,10 +46,11 @@ def sales(sales_contract_path) -> List[Artifact]:
 # --- artifact set -----------------------------------------------------------
 
 
-def test_translate_contract_emits_five_artifacts_per_object(sales):
+def test_translate_contract_emits_six_artifacts_per_object(sales):
     assert sorted(a.relative_path for a in sales) == [
         "sales/load/schemas/customer_schema.yaml",
         "sales/transform/expectations/customer_expectations.yaml",
+        "sales/transform/python/customer_convert.py",
         "sales/transform/schemas/customer_transform.yaml",
         "sales/write/schemas/customer_schema.yaml",
         "sales/write/uc_tags/customer_tags.yaml",
@@ -83,7 +84,7 @@ def test_translate_contract_emits_one_artifact_set_per_object_when_multi_object(
     paths = {a.relative_path for a in artifacts}
     assert "multi/write/schemas/orders_schema.yaml" in paths
     assert "multi/write/schemas/products_schema.yaml" in paths
-    assert len(artifacts) == 10
+    assert len(artifacts) == 12
 
 
 # --- load schema ------------------------------------------------------------
@@ -206,6 +207,183 @@ def test_write_schema_marks_primary_key_column_not_nullable_even_without_require
     assert _column(write, "pk")["nullable"] is False
     # Load (raw read) schema stays permissive.
     assert _column(load, "pk")["nullable"] is True
+
+
+# --- type-convert module ----------------------------------------------------
+
+
+def _text(artifacts: List[Artifact], relative_path: str) -> str:
+    for artifact in artifacts:
+        if artifact.relative_path == relative_path:
+            assert artifact.text is not None, f"{relative_path} has no text"
+            return artifact.text
+    raise AssertionError(f"no artifact at {relative_path}")
+
+
+def _convert_contract(prop: Dict[str, Any]) -> List[Artifact]:
+    contract = {
+        "version": "1.0",
+        "schema": [{"name": "t", "properties": [{"name": "c", **prop}]}],
+    }
+    return translate_contract(contract, prefix="p")
+
+
+def test_type_convert_module_parses_string_timestamp_with_format():
+    artifacts = _convert_contract(
+        {
+            "logicalType": "timestamp",
+            "physicalType": "STRING",
+            "logicalTypeOptions": {"format": "MM/dd/yyyy HH:mm"},
+        }
+    )
+
+    module = _text(artifacts, "p/transform/python/t_convert.py")
+    assert 'df = df.withColumn("c", F.expr("to_timestamp(`c`, ' in module
+    assert "def convert_types(df: DataFrame, spark, parameters: dict)" in module
+
+
+def test_type_convert_module_parses_string_object_with_from_json():
+    artifacts = _convert_contract(
+        {
+            "logicalType": "object",
+            "physicalType": "STRING",
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
+        }
+    )
+
+    module = _text(artifacts, "p/transform/python/t_convert.py")
+    assert (
+        'df = df.withColumn("c", F.expr("from_json(`c`, '
+        "'STRUCT<city:STRING>')\"))" in module
+    )
+
+
+def test_type_convert_module_uses_physical_name_when_source_differs():
+    contract = {
+        "version": "1.0",
+        "schema": [
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "created_at",
+                        "physicalName": "cust ts",
+                        "logicalType": "timestamp",
+                        "physicalType": "STRING",
+                        "logicalTypeOptions": {"format": "MM/dd/yyyy"},
+                    }
+                ],
+            }
+        ],
+    }
+    artifacts = translate_contract(contract, prefix="p")
+
+    module = _text(artifacts, "p/transform/python/t_convert.py")
+    # Runs on the raw load (pre-rename), so the source name is used.
+    assert '"cust ts"' in module
+    assert "created_at" not in module
+
+
+def test_type_convert_module_is_passthrough_when_no_conversions(sales):
+    module = _text(sales, "sales/transform/python/customer_convert.py")
+
+    assert "withColumn" not in module
+    assert module.rstrip().endswith("return df")
+
+
+def test_type_convert_module_omits_operational_metadata_and_scd2_columns():
+    contract = {
+        "version": "1.0",
+        "schema": [
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "_processing_timestamp",
+                        "logicalType": "timestamp",
+                        "physicalType": "STRING",
+                        "logicalTypeOptions": {"format": "MM/dd/yyyy"},
+                    }
+                ],
+            }
+        ],
+    }
+    artifacts = translate_contract(contract, prefix="p", exclude=EXCLUDE)
+
+    module = _text(artifacts, "p/transform/python/t_convert.py")
+    assert "withColumn" not in module
+
+
+# --- converted-column typing across sidecars --------------------------------
+
+
+def test_transform_schema_casts_converted_column_to_its_target_type():
+    # Converted columns are still listed in type_casting (with their parsed target
+    # type) so a strict schema transform doesn't drop them.
+    artifacts = _convert_contract(
+        {
+            "logicalType": "object",
+            "physicalType": "STRING",
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
+        }
+    )
+
+    schema = _artifact(artifacts, "p/transform/schemas/t_transform.yaml")
+    assert schema["type_casting"]["c"] == "STRUCT<city:STRING>"
+
+
+def test_transform_schema_casts_base64_converted_column_to_binary():
+    # base64 string->BINARY: type_casting must use the converted target (BINARY),
+    # matching the write schema — not the raw STRING from odcs_type_to_spark.
+    artifacts = _convert_contract(
+        {
+            "logicalType": "string",
+            "physicalType": "STRING",
+            "logicalTypeOptions": {"format": "byte"},
+        }
+    )
+
+    schema = _artifact(artifacts, "p/transform/schemas/t_transform.yaml")
+    assert schema["type_casting"]["c"] == "BINARY"
+
+
+def test_load_schema_types_converted_column_as_string():
+    artifacts = _convert_contract(
+        {
+            "logicalType": "object",
+            "physicalType": "STRING",
+            "properties": [{"name": "city", "logicalType": "string", "physicalType": "STRING"}],
+        }
+    )
+
+    load = _artifact(artifacts, "p/load/schemas/t_schema.yaml")
+    assert _column(load, "c")["type"] == "STRING"
+
+
+def test_write_schema_types_converted_column_as_target_type():
+    artifacts = _convert_contract(
+        {
+            "logicalType": "timestamp",
+            "physicalType": "STRING",
+            "logicalTypeOptions": {"format": "MM/dd/yyyy"},
+        }
+    )
+
+    write = _artifact(artifacts, "p/write/schemas/t_schema.yaml")
+    assert _column(write, "c")["type"] == "TIMESTAMP"
+
+
+def test_write_schema_types_base64_string_column_as_binary():
+    artifacts = _convert_contract(
+        {
+            "logicalType": "string",
+            "physicalType": "STRING",
+            "logicalTypeOptions": {"format": "byte"},
+        }
+    )
+
+    write = _artifact(artifacts, "p/write/schemas/t_schema.yaml")
+    assert _column(write, "c")["type"] == "BINARY"
 
 
 # --- tags file --------------------------------------------------------------

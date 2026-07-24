@@ -73,8 +73,13 @@ def _translate_into(tmp_path: Path) -> Path:
     return output_dir
 
 
-def _rel_yaml_files(root: Path) -> Dict[str, Path]:
-    return {p.relative_to(root).as_posix(): p for p in root.rglob("*.yaml")}
+def _rel_output_files(root: Path) -> Dict[str, Path]:
+    """All generated sidecars (YAML + generated Python transform modules)."""
+    return {
+        p.relative_to(root).as_posix(): p
+        for p in root.rglob("*")
+        if p.is_file() and p.suffix in (".yaml", ".py")
+    }
 
 
 def _regenerate(output_dir: Path) -> None:
@@ -90,15 +95,17 @@ def test_translate_matches_golden_snapshot(tmp_path):
         _regenerate(output_dir)
         return
 
-    generated = _rel_yaml_files(output_dir)
-    expected = _rel_yaml_files(EXPECTED)
+    generated = _rel_output_files(output_dir)
+    expected = _rel_output_files(EXPECTED)
 
     # Same set of sidecar files (catches added/removed/renamed outputs).
     assert set(generated) == set(expected)
 
     for rel, exp_path in expected.items():
-        # First compare parsed YAML: a structural/value change gives a clear diff.
-        assert _load_yaml(generated[rel]) == _load_yaml(exp_path), rel
+        # For YAML, first compare parsed content: a structural/value change gives
+        # a clear diff. Generated .py modules are compared by raw bytes only.
+        if rel.endswith(".yaml"):
+            assert _load_yaml(generated[rel]) == _load_yaml(exp_path), rel
         # Then compare raw bytes: catches key-ordering/formatting regressions
         # (the writer emits with sort_keys=False to preserve authored order),
         # which parsed-YAML equality alone would miss.
@@ -114,4 +121,10 @@ def test_translate_produces_one_output_tree_per_contract(tmp_path):
     prefixes = {p.relative_to(output_dir).parts[0] for p in output_dir.rglob("*.yaml")}
 
     # 'inventory.odcs.yaml' keeps its inner '.odcs' (only the final extension is stripped).
-    assert prefixes == {"sales.contract", "inventory.odcs", "marketing", "minimal"}
+    assert prefixes == {
+        "sales.contract",
+        "inventory.odcs",
+        "marketing",
+        "minimal",
+        "type_matrix",
+    }

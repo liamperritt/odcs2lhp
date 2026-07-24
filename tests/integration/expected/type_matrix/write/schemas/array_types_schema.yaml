@@ -1,0 +1,25 @@
+name: array_types
+version: 1.0.0
+description: logicalType array, JSON-string parse + structured physicals + fallbacks
+columns:
+- name: a_json
+  type: ARRAY<STRING>
+  nullable: true
+  comment: STRING/array + items -> ARRAY<...> (python transform from_json)
+- name: a_items_win
+  type: ARRAY<STRING>
+  nullable: true
+  comment: ARRAY<INT>/array + items:string -> ARRAY<STRING> (logical items win)
+- name: a_incomplete
+  type: ARRAY<STRING>
+  nullable: true
+  comment: ARRAY (incomplete)/array + items:string -> ARRAY<STRING> (logical items
+    win)
+- name: a_verbatim
+  type: ARRAY<INT>
+  nullable: true
+  comment: ARRAY<INT>/array no items -> ARRAY<INT> (verbatim)
+- name: a_unusable
+  type: ARRAY<STRING>
+  nullable: true
+  comment: unusable/array + items -> ARRAY<...> (logical items win)

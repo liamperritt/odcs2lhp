@@ -1,0 +1,49 @@
+name: temporal_types
+version: 1.0.0
+description: logicalType date/timestamp/time, format-aware conversions + fallbacks
+columns:
+- name: d_date_verbatim
+  type: DATE
+  nullable: true
+  comment: DATE/date -> DATE (verbatim)
+- name: d_string_no_format
+  type: DATE
+  nullable: true
+  comment: STRING/date (no format) -> DATE (bare cast, schema transform)
+- name: d_string_format
+  type: STRING
+  nullable: true
+  comment: STRING/date + format -> DATE (python transform to_date)
+- name: d_unusable
+  type: DATE
+  nullable: true
+  comment: unusable/date -> DATE (logical wins)
+- name: ts_timestamp_verbatim
+  type: TIMESTAMP
+  nullable: true
+  comment: TIMESTAMP/timestamp -> TIMESTAMP (verbatim)
+- name: ts_string_no_format
+  type: TIMESTAMP
+  nullable: true
+  comment: STRING/timestamp (no format) -> TIMESTAMP (bare cast)
+- name: ts_string_format
+  type: STRING
+  nullable: true
+  comment: STRING/timestamp + format -> TIMESTAMP (python transform to_timestamp)
+- name: ts_string_tz
+  type: STRING
+  nullable: true
+  comment: STRING/timestamp + format + timezone:false + defaultTimezone -> TIMESTAMP
+    (to_utc_timestamp)
+- name: ts_unusable
+  type: TIMESTAMP
+  nullable: true
+  comment: unusable/timestamp -> TIMESTAMP (logical wins)
+- name: t_string
+  type: STRING
+  nullable: true
+  comment: STRING/time -> STRING (Spark has no TIME type; string refines time)
+- name: t_unusable
+  type: STRING
+  nullable: true
+  comment: unusable/time -> STRING (logical wins)

@@ -1,0 +1,26 @@
+version: '1.0'
+table: temporal_types
+tags: {}
+columns:
+- name: d_date_verbatim
+  tags: {}
+- name: d_string_no_format
+  tags: {}
+- name: d_string_format
+  tags: {}
+- name: d_unusable
+  tags: {}
+- name: ts_timestamp_verbatim
+  tags: {}
+- name: ts_string_no_format
+  tags: {}
+- name: ts_string_format
+  tags: {}
+- name: ts_string_tz
+  tags: {}
+- name: ts_unusable
+  tags: {}
+- name: t_string
+  tags: {}
+- name: t_unusable
+  tags: {}

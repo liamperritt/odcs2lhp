@@ -1,0 +1,46 @@
+name: string_types
+version: 1.0.0
+description: logicalType string, across usable/unusable physicals + formats
+columns:
+- name: s_string
+  type: STRING
+  nullable: true
+  comment: STRING/string -> STRING (schema transform)
+- name: s_char
+  type: CHAR(3)
+  nullable: true
+  comment: CHAR(n)/string -> CHAR(3) (schema transform)
+- name: s_varchar
+  type: VARCHAR(20)
+  nullable: true
+  comment: VARCHAR(n)/string -> VARCHAR(20) (schema transform)
+- name: s_binary
+  type: BINARY
+  nullable: true
+  comment: BINARY/string -> BINARY (binary refines string)
+- name: s_interval
+  type: INTERVAL
+  nullable: true
+  comment: INTERVAL/string -> INTERVAL (refines string)
+- name: s_geography
+  type: GEOGRAPHY
+  nullable: true
+  comment: GEOGRAPHY/string -> GEOGRAPHY (refines string)
+- name: s_geometry
+  type: GEOMETRY
+  nullable: true
+  comment: GEOMETRY/string -> GEOMETRY (refines string)
+- name: s_validation
+  type: STRING
+  nullable: true
+  comment: STRING/string + validation format -> STRING (validation -> expectations
+    only)
+- name: s_base64
+  type: BINARY
+  nullable: true
+  comment: STRING/string + format byte -> BINARY (python transform unbase64)
+- name: s_unusable
+  type: STRING
+  nullable: true
+  comment: unusable/string -> STRING (logical wins; base64 only fires for a string-family
+    physical)

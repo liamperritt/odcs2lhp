@@ -1,0 +1,12 @@
+version: '1.0'
+table: string_types
+expectations:
+- name: s_validation_min_length
+  expression: length(`s_validation`) >= 3
+  failureAction: warn
+- name: s_validation_max_length
+  expression: length(`s_validation`) <= 320
+  failureAction: warn
+- name: s_validation_pattern
+  expression: '`s_validation` RLIKE ''^[^@]+@[^@]+\\.[^@]+$'''
+  failureAction: warn

@@ -1,0 +1,10 @@
+version: '1.0'
+table: boolean_types
+tags: {}
+columns:
+- name: b_bool_verbatim
+  tags: {}
+- name: b_string_cast
+  tags: {}
+- name: b_unusable
+  tags: {}

@@ -262,12 +262,14 @@ def test_type_mapping_errors_when_both_types_absent():
     assert exc_info.value.code == "ODCS-TYPE-001"
 
 
-# --- string -> temporal format guard ----------------------------------------
+# --- string -> temporal (resolved/write type) -------------------------------
+# ``_one_type`` returns the write-schema (final) type. A string-physical temporal
+# resolves to its parsed target regardless of format: with a format the runtime
+# type-convert module parses it (see test_conversions); without a format a bare
+# cast handles it. Either way the final column type is DATE/TIMESTAMP.
 
 
-def test_type_mapping_defers_string_to_timestamp_when_format_present():
-    # A declared format needs a format-aware parse (deferred to a later feature),
-    # so the column keeps its string type here.
+def test_type_mapping_resolves_string_to_timestamp_when_format_present():
     assert (
         _one_type(
             {
@@ -276,11 +278,11 @@ def test_type_mapping_defers_string_to_timestamp_when_format_present():
                 "logicalTypeOptions": {"format": "yyyy-MM-dd HH:mm:ss"},
             }
         )
-        == "STRING"
+        == "TIMESTAMP"
     )
 
 
-def test_type_mapping_defers_string_to_date_when_format_present():
+def test_type_mapping_resolves_string_to_date_when_format_present():
     assert (
         _one_type(
             {
@@ -289,11 +291,11 @@ def test_type_mapping_defers_string_to_date_when_format_present():
                 "logicalTypeOptions": {"format": "yyyy-MM-dd"},
             }
         )
-        == "STRING"
+        == "DATE"
     )
 
 
-def test_type_mapping_defers_string_to_timestamp_when_format_is_non_default():
+def test_type_mapping_resolves_string_to_timestamp_when_format_is_non_default():
     assert (
         _one_type(
             {
@@ -302,12 +304,11 @@ def test_type_mapping_defers_string_to_timestamp_when_format_is_non_default():
                 "logicalTypeOptions": {"format": "MM/dd/yyyy"},
             }
         )
-        == "STRING"
+        == "TIMESTAMP"
     )
 
 
 def test_type_mapping_casts_string_to_timestamp_when_no_format():
-    # No format is a bare cast Spark handles, so it becomes TIMESTAMP.
     assert (
         _one_type({"logicalType": "timestamp", "physicalType": "STRING"}) == "TIMESTAMP"
     )

@@ -14,19 +14,31 @@ columns:
   type: DECIMAL(12,2)
   nullable: true
   comment: Campaign budget
-- name: reporting_date
-  type: DATE
-  nullable: true
-  comment: ISO reporting date, bare-castable to DATE
 - name: launch_date
   type: STRING
   nullable: true
-  comment: Launch date in a US format (deferred, stays STRING)
+  comment: Launch date, US-formatted string in the source
+- name: created_at
+  type: STRING
+  nullable: true
+  comment: Creation timestamp, ISO-with-T string in the source
+- name: updated_at
+  type: STRING
+  nullable: true
+  comment: Update timestamp, wall-clock string in a fixed zone
 - name: audience
   type: STRING
   nullable: true
-  comment: JSON-encoded target audience (deferred, stays STRING)
+  comment: Target audience, JSON-encoded object in the source
 - name: channels
   type: STRING
   nullable: true
-  comment: JSON-encoded delivery channels (deferred, stays STRING)
+  comment: Delivery channels, JSON array in the source
+- name: raw_payload
+  type: STRING
+  nullable: true
+  comment: Free-form vendor payload, parsed to a variant
+- name: tracking_pixel
+  type: STRING
+  nullable: true
+  comment: Base64-encoded tracking pixel bytes

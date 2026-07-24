@@ -12,7 +12,8 @@ These functions operate on plain ODCS dicts and return strings / dicts / tuples:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 from .errors import Odcs2LhpError
 from .parsers.spark_type_parser import parse_spark_ddl, spark_family
@@ -208,9 +209,7 @@ def _physical_is_usable(prop: Dict[str, Any], logical: str) -> bool:
 
     Applies the family-compatibility rules. Complex logical types (object/array)
     are handled by the caller when they carry a logical shape; this only judges a
-    physical type against a scalar or shapeless complex logical. Deferred
-    string-encoded conversions are intercepted by the caller before this is
-    reached (see :func:`is_deferred_conversion`).
+    physical type against a scalar or shapeless complex logical.
     """
     physical = prop.get("physicalType")
     node = parse_spark_ddl(physical) if physical else None
@@ -232,28 +231,6 @@ def _has_numeric_format(prop: Dict[str, Any], logical: str) -> bool:
     return bool((prop.get("logicalTypeOptions") or {}).get("format"))
 
 
-def is_deferred_conversion(prop: Dict[str, Any]) -> bool:
-    """True when a string-physical column needs a parse a bare cast can't do.
-
-    These conversions are deferred to a later feature: ``string``->object/array
-    (a JSON parse) and ``string``->``date``/``timestamp`` *with a declared
-    ``format``* (a format-aware parse). For now such columns keep their (string)
-    physical type. A ``date``/``timestamp`` with no ``format`` is NOT deferred — a
-    bare Spark cast handles it — nor is any non-string physical type.
-    """
-    physical = prop.get("physicalType")
-    node = parse_spark_ddl(physical) if physical else None
-    if node is None or spark_family(node) != "string":
-        return False
-
-    logical = prop.get("logicalType")
-    if logical in ("object", "array"):
-        return True
-    if logical in ("date", "timestamp"):
-        return bool((prop.get("logicalTypeOptions") or {}).get("format"))
-    return False
-
-
 def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
     """Resolve an ODCS schema property to a Spark DDL type string.
 
@@ -263,16 +240,17 @@ def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
     whose family is compatible with (a subtype of) the ``logicalType``. Otherwise
     the always-mappable ``logicalType`` wins.
 
-    - **Deferred conversions:** a string-physical column whose logical type needs a
-      parse a bare cast can't do (JSON->object/array, or a formatted
-      ``date``/``timestamp``) keeps its ``physicalType`` (a string) — the parse is
-      deferred to a later feature (see :func:`is_deferred_conversion`).
     - **Logical shape wins:** an object with ``properties``, an array with
       ``items``, or a numeric type with ``logicalTypeOptions.format`` builds the
       type from the logical definition, ignoring ``physicalType``.
     - **Scalar (and shapeless complex):** use ``physicalType`` verbatim when its
-      family matches; a ``STRING`` physical for a ``date``/``timestamp`` logical with
-      no ``format`` becomes ``DATE``/``TIMESTAMP`` (a bare cast).
+      family matches; otherwise fall back to the logical type.
+
+    This returns the column's *final* (post-conversion) Spark type. A
+    string-encoded value that a bare cast can't produce (JSON->object/array, a
+    formatted ``date``/``timestamp``) is converted at runtime by the generated
+    type-convert module (see :func:`string_conversion`); this function still
+    reports its parsed target so the write schema matches.
 
     :raises Odcs2LhpError: when ``physicalType`` or ``logicalType`` is missing, or
         the type is otherwise unmappable (``ODCS-TYPE-001``).
@@ -282,11 +260,6 @@ def odcs_type_to_spark(prop: Dict[str, Any]) -> str:
 
     if not physical or not logical:
         raise _missing_types(prop)
-
-    # A string-encoded value needing a non-cast parse keeps its string type; the
-    # conversion is deferred to a later feature.
-    if is_deferred_conversion(prop):
-        return physical
 
     # A defined logical shape always wins: object properties, array items, or a
     # numeric format all pin the target type regardless of physicalType.
@@ -362,15 +335,7 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
     property ``required`` flag is NOT translated here (see
     :func:`odcs2lhp.translator` for the NOT NULL expectation). Unknown options are
     skipped.
-
-    A deferred string-encoded column (see :func:`is_deferred_conversion`) yields no
-    predicates: its ``logicalTypeOptions`` describe the *parsed* shape (object
-    fields, array size, temporal bounds), which cannot be evaluated against the
-    still-unconverted string.
     """
-    if is_deferred_conversion(prop):
-        return []
-
     col = prop["name"]
     qcol = quote_identifier(col)
     scol = sanitize_name(col)
@@ -460,3 +425,152 @@ def odcs_property_to_constraints(prop: Dict[str, Any]) -> List[Tuple[str, str]]:
             )
 
     return constraints
+
+
+# ---------------------------------------------------------------------------
+# String conversions  (string-encoded value -> parsed Spark type via a runtime
+# expression the schema-cast path cannot express)
+# ---------------------------------------------------------------------------
+
+# ODCS string ``logicalTypeOptions.format`` values that denote base64 payloads.
+_BASE64_STRING_FORMATS = frozenset({"byte", "binary"})
+
+
+@dataclass(frozen=True)
+class Conversion:
+    """A runtime string→typed-value conversion for one property.
+
+    Produced only for columns whose *source* is the Spark ``string`` family and
+    whose logical shape needs a parse a plain ``CAST`` cannot do (format-aware
+    ``to_date``/``to_timestamp``, ``from_json`` for struct/array, ``parse_json``
+    for variant, ``unbase64`` for base64 strings).
+
+    :param kind: the conversion kind — one of ``to_date``, ``to_timestamp``,
+        ``to_utc_timestamp``, ``from_json_struct``, ``from_json_array``,
+        ``parse_json``, ``unbase64``.
+    :param column: the source (``physicalName``, else ``name``) column the result is
+        written to — the module runs on the raw load, before the schema transform
+        renames columns to their logical names.
+    :param source_type: the raw source Spark type (the load-schema type, e.g.
+        ``STRING``) — a string type, since the parse consumes a string.
+    :param target_type: the resulting Spark DDL type (e.g. ``TIMESTAMP``,
+        ``STRUCT<city:STRING>``, ``VARIANT``, ``BINARY``).
+    :param sql_expr: the Spark SQL expression (for ``F.expr(...)``) that performs
+        the conversion, with the column name backtick-quoted.
+    """
+
+    kind: str
+    column: str
+    source_type: str
+    target_type: str
+    sql_expr: str
+
+
+def _temporal_conversion(prop: Dict[str, Any], column: str) -> Optional[Conversion]:
+    """Build a ``to_date``/``to_timestamp``/``to_utc_timestamp`` conversion.
+
+    Requires a ``logicalTypeOptions.format``; without one there is nothing to
+    parse against and the column stays a string (returns ``None``).
+    """
+    logical = prop["logicalType"]
+    options = prop.get("logicalTypeOptions") or {}
+    fmt = options.get("format")
+    if not isinstance(fmt, str):
+        return None
+
+    qcol = quote_identifier(column)
+    fmt_literal = _sql_str_literal(fmt)
+
+    if logical == "date":
+        return Conversion(
+            kind="to_date",
+            column=column,
+            source_type="STRING",
+            target_type="DATE",
+            sql_expr=f"to_date({qcol}, {fmt_literal})",
+        )
+
+    # timestamp / time -> TIMESTAMP (Spark has no TIME type).
+    parsed = f"to_timestamp({qcol}, {fmt_literal})"
+    if options.get("timezone") is False and options.get("defaultTimezone"):
+        tz_literal = _sql_str_literal(options["defaultTimezone"])
+        return Conversion(
+            kind="to_utc_timestamp",
+            column=column,
+            source_type="STRING",
+            target_type="TIMESTAMP",
+            sql_expr=f"to_utc_timestamp({parsed}, {tz_literal})",
+        )
+    return Conversion(
+        kind="to_timestamp",
+        column=column,
+        source_type="STRING",
+        target_type="TIMESTAMP",
+        sql_expr=parsed,
+    )
+
+
+def string_conversion(prop: Dict[str, Any]) -> Optional[Conversion]:
+    """Return the :class:`Conversion` for ``prop``, or ``None`` if none applies.
+
+    Only string-sourced columns convert: ``physicalType`` must parse to the Spark
+    ``string`` family. Given that, the property's ``logicalType`` +
+    ``logicalTypeOptions`` select the conversion per the documented rules; a
+    column that needs no runtime parse (e.g. string→integer, a validation-only
+    ``format`` such as ``email``) returns ``None`` and is left to the normal
+    cast path.
+    """
+    physical = prop.get("physicalType")
+    node = parse_spark_ddl(physical) if physical else None
+    if node is None or spark_family(node) != "string":
+        return None
+
+    logical = prop.get("logicalType")
+    options = prop.get("logicalTypeOptions") or {}
+    # The type-convert module runs on the raw load (before the schema transform
+    # renames physical->logical names), so it references the source (physical)
+    # name.
+    column = prop.get("physicalName") or prop["name"]
+    qcol = quote_identifier(column)
+
+    if logical in ("date", "timestamp", "time"):
+        return _temporal_conversion(prop, column)
+
+    if logical == "object":
+        if prop.get("properties"):
+            target = _logical_object_to_spark(prop)
+            return Conversion(
+                kind="from_json_struct",
+                column=column,
+                source_type="STRING",
+                target_type=target,
+                sql_expr=f"from_json({qcol}, {_sql_str_literal(target)})",
+            )
+        return Conversion(
+            kind="parse_json",
+            column=column,
+            source_type="STRING",
+            target_type="VARIANT",
+            sql_expr=f"parse_json({qcol})",
+        )
+
+    if logical == "array" and prop.get("items"):
+        target = _logical_array_to_spark(prop)
+        return Conversion(
+            kind="from_json_array",
+            column=column,
+            source_type="STRING",
+            target_type=target,
+            sql_expr=f"from_json({qcol}, {_sql_str_literal(target)})",
+        )
+
+    if logical == "string" and options.get("format") in _BASE64_STRING_FORMATS:
+        return Conversion(
+            kind="unbase64",
+            column=column,
+            source_type="STRING",
+            target_type="BINARY",
+            sql_expr=f"unbase64({qcol})",
+        )
+
+    return None

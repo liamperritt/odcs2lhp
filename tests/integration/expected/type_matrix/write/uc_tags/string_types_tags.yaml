@@ -1,0 +1,24 @@
+version: '1.0'
+table: string_types
+tags: {}
+columns:
+- name: s_string
+  tags: {}
+- name: s_char
+  tags: {}
+- name: s_varchar
+  tags: {}
+- name: s_binary
+  tags: {}
+- name: s_interval
+  tags: {}
+- name: s_geography
+  tags: {}
+- name: s_geometry
+  tags: {}
+- name: s_validation
+  tags: {}
+- name: s_base64
+  tags: {}
+- name: s_unusable
+  tags: {}

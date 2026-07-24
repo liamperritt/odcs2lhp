@@ -11,17 +11,18 @@ changes. It is tool-agnostic — it applies to any coding agent or human contrib
 **sidecar files**. It reads only your ODCS contract files and your project's
 `lhp.yaml`; it never inspects pipeline YAMLs or any other files.
 
-For every schema object in every discovered contract, it writes five sidecars
+For every schema object in every discovered contract, it writes six sidecars
 under `.lhp/odcs/<prefix>/` (which LHP gitignores), where `<prefix>` mirrors the
 contract file's path under the contracts dir plus its filename without the final
 extension:
 
 | Sidecar | Path | Purpose |
 |---|---|---|
-| Load schema | `<prefix>/load/schemas/<obj>_schema.yaml` | cloudFiles read schema; columns named by `physicalName`; excludes operational-metadata + SCD2 columns |
-| Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `column_mapping` (renames) + `type_casting` for a `transform_type: schema` action |
+| Load schema | `<prefix>/load/schemas/<obj>_schema.yaml` | cloudFiles read schema; columns named by `physicalName`; excludes operational-metadata + SCD2 columns; converted columns keep raw `STRING` type |
+| Transform schema | `<prefix>/transform/schemas/<obj>_transform.yaml` | `column_mapping` (renames) + `type_casting` for a `transform_type: schema` action; every non-OM/SCD2 column (incl. Python-converted ones) is cast to its target type so a `strict` transform keeps it |
+| Type-convert module | `<prefix>/transform/python/<obj>_convert.py` | rendered `transform_type: python` module (`convert_types`) applying `to_date`/`to_timestamp`/`to_utc_timestamp`/`from_json`/`parse_json`/`unbase64` to string-encoded columns; passthrough when none |
 | Expectations | `<prefix>/transform/expectations/<obj>_expectations.yaml` | `required` → NOT NULL plus `logicalTypeOptions` predicates |
-| Write schema | `<prefix>/write/schemas/<obj>_schema.yaml` | table schema, all columns, logical names, `primary_key` (no tags) |
+| Write schema | `<prefix>/write/schemas/<obj>_schema.yaml` | table schema, all columns, logical names, `primary_key` (no tags); converted columns carry parsed target type |
 | UC tags | `<prefix>/write/uc_tags/<obj>_tags.yaml` | table-level `tags` + per-column `columns` list of `{name, tags}` |
 
 Each run wipes and rebuilds the output directory, so the sidecars are always a
@@ -34,12 +35,17 @@ fresh reflection of the contracts.
   SCD2 exclusions, find contract files, compute the output prefix.
 - `parser.py` — load + validate an ODCS contract against the bundled JSON schema.
 - `mapper.py` — pure ODCS→target mappers (types, UC tags, constraint predicates,
-  name/identifier helpers). No I/O.
+  string→typed-value conversions via `string_conversion`, name/identifier helpers).
+  No I/O.
+- `template_renderer.py` — `TemplateRenderer` owning the Jinja2 environment; renders
+  the bundled `templates/*.j2` (named to cohere with LHP's `template_renderer.py`).
 - `translator.py` — turn a parsed contract into the list of `Artifact` sidecars.
-- `writer.py` — write `Artifact`s to disk as YAML.
+- `writer.py` — write `Artifact`s to disk (YAML, or verbatim `text` for `.py`).
 - `errors.py` — the single `Odcs2LhpError` exception type (carries a `code`,
   message, and optional suggestions).
 - `schemas/` — the bundled ODCS JSON schema (vendored verbatim; do not edit).
+- `templates/` — bundled Jinja2 `*.j2` templates (one per transform kind, e.g.
+  `type_convert.py.j2`), loaded by `template_renderer.py`.
 
 ## Environment & commands
 

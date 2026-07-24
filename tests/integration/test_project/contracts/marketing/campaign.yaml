@@ -36,20 +36,30 @@ schema:
         description: Campaign budget
         logicalTypeOptions:
           exclusiveMinimum: 0
-      - name: reporting_date
-        logicalType: date
-        physicalType: STRING
-        description: ISO reporting date, bare-castable to DATE
       - name: launch_date
         logicalType: date
         physicalType: STRING
-        description: Launch date in a US format (deferred, stays STRING)
+        description: Launch date, US-formatted string in the source
         logicalTypeOptions:
           format: "MM/dd/yyyy"
+      - name: created_at
+        logicalType: timestamp
+        physicalType: STRING
+        description: Creation timestamp, ISO-with-T string in the source
+        logicalTypeOptions:
+          format: "yyyy-MM-dd'T'HH:mm:ss"
+      - name: updated_at
+        logicalType: timestamp
+        physicalType: STRING
+        description: Update timestamp, wall-clock string in a fixed zone
+        logicalTypeOptions:
+          format: "yyyy-MM-dd HH:mm:ss"
+          timezone: false
+          defaultTimezone: "America/New_York"
       - name: audience
         logicalType: object
         physicalType: STRING
-        description: JSON-encoded target audience (deferred, stays STRING)
+        description: Target audience, JSON-encoded object in the source
         properties:
           - name: segment
             logicalType: string
@@ -60,7 +70,17 @@ schema:
       - name: channels
         logicalType: array
         physicalType: STRING
-        description: JSON-encoded delivery channels (deferred, stays STRING)
+        description: Delivery channels, JSON array in the source
         items:
           logicalType: string
           physicalType: STRING
+      - name: raw_payload
+        logicalType: object
+        physicalType: STRING
+        description: Free-form vendor payload, parsed to a variant
+      - name: tracking_pixel
+        logicalType: string
+        physicalType: STRING
+        description: Base64-encoded tracking pixel bytes
+        logicalTypeOptions:
+          format: byte

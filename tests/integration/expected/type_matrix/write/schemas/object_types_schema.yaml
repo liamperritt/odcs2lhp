@@ -1,0 +1,41 @@
+name: object_types
+version: 1.0.0
+description: logicalType object, JSON-string parse + structured physicals + fallbacks
+columns:
+- name: o_json_struct
+  type: STRUCT<seg:STRING,sz:INT>
+  nullable: true
+  comment: STRING/object + properties -> STRUCT<...> (python transform from_json)
+- name: o_json_variant
+  type: VARIANT
+  nullable: true
+  comment: STRING/object no properties -> VARIANT (python transform parse_json)
+- name: o_struct_shape
+  type: STRUCT<a:BIGINT>
+  nullable: true
+  comment: STRUCT<a:STRING>/object + properties[a:integer] -> STRUCT<a:BIGINT> (logical
+    shape wins)
+- name: o_map_shape
+  type: STRUCT<a:BIGINT>
+  nullable: true
+  comment: MAP/object + properties[a:integer] -> STRUCT<a:BIGINT> (logical shape wins)
+- name: o_map_verbatim
+  type: MAP<STRING,STRING>
+  nullable: true
+  comment: MAP/object no properties -> MAP<STRING,STRING> (verbatim)
+- name: o_struct_verbatim
+  type: STRUCT<x:INT>
+  nullable: true
+  comment: STRUCT/object no properties -> STRUCT<x:INT> (verbatim)
+- name: o_variant_verbatim
+  type: VARIANT
+  nullable: true
+  comment: VARIANT/object no properties -> VARIANT (verbatim)
+- name: o_unusable_struct
+  type: STRUCT<a:BIGINT>
+  nullable: true
+  comment: unusable/object + properties -> STRUCT<...> (logical shape wins)
+- name: o_unusable_variant
+  type: VARIANT
+  nullable: true
+  comment: unusable/object no properties -> VARIANT (logical wins)

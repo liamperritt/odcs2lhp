@@ -1,0 +1,10 @@
+type_casting:
+  o_json_struct: STRUCT<seg:STRING,sz:INT>
+  o_json_variant: VARIANT
+  o_struct_shape: STRUCT<a:BIGINT>
+  o_map_shape: STRUCT<a:BIGINT>
+  o_map_verbatim: MAP<STRING,STRING>
+  o_struct_verbatim: STRUCT<x:INT>
+  o_variant_verbatim: VARIANT
+  o_unusable_struct: STRUCT<a:BIGINT>
+  o_unusable_variant: VARIANT

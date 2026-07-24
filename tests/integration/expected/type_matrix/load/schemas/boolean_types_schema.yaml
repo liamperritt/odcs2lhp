@@ -1,0 +1,16 @@
+name: boolean_types
+version: 1.0.0
+description: logicalType boolean
+columns:
+- name: b_bool_verbatim
+  type: BOOLEAN
+  nullable: true
+  comment: BOOLEAN/boolean -> BOOLEAN (verbatim)
+- name: b_string_cast
+  type: BOOLEAN
+  nullable: true
+  comment: STRING/boolean -> BOOLEAN (schema transform)
+- name: b_unusable
+  type: BOOLEAN
+  nullable: true
+  comment: unusable/boolean -> BOOLEAN (logical wins)
